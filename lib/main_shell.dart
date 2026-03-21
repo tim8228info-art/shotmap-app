@@ -16,14 +16,14 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   int _currentIndex = 0;
 
-  // 各タブのページコントローラーキー
+  // マップ画面のコントローラー
   final GlobalKey<_MapScreenWrapperState> _mapKey =
       GlobalKey<_MapScreenWrapperState>();
 
   void _jumpMapTo(double lat, double lng) {
     setState(() => _currentIndex = 0);
-    // マップ画面に遷移後、位置ジャンプ
-    Future.delayed(const Duration(milliseconds: 100), () {
+    // マップタブに切り替え後、少し待ってカメラ移動
+    Future.delayed(const Duration(milliseconds: 300), () {
       _mapKey.currentState?.jumpTo(lat, lng);
     });
   }
@@ -155,13 +155,14 @@ class _MapScreenWrapper extends StatefulWidget {
 }
 
 class _MapScreenWrapperState extends State<_MapScreenWrapper> {
+  final MapScreenController _controller = MapScreenController();
+
   @override
   Widget build(BuildContext context) {
-    return const MapScreen();
+    return MapScreen(controller: _controller);
   }
 
   void jumpTo(double lat, double lng) {
-    // マップ画面への位置ジャンプはMapControllerを経由
-    // 実装はMapScreenの内部状態で管理
+    _controller.jumpTo(lat, lng);
   }
 }

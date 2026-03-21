@@ -64,37 +64,24 @@ class _LoginScreenState extends State<LoginScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ① 背景グラデーション（空・海のような淡いブルー）
+          // ① 背景（写真読み込み前のフォールバック）
           Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFB3D9F2),
-                  Color(0xFF7BBFE0),
-                  Color(0xFF5BA4CF),
-                  Color(0xFF3D8FBF),
-                ],
-                stops: [0.0, 0.35, 0.65, 1.0],
-              ),
+            color: const Color(0xFF3D8FBF),
+          ),
+
+          // ② 富士山の背景写真
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/fuji_bg.png',
+              fit: BoxFit.cover,
+              alignment: const Alignment(0.0, -0.3),
             ),
           ),
 
-          // ② 富士山＋📍イラスト（富士山が画面中央に来るよう配置）
+          // 全体に薄い暗オーバーレイ（テキスト可読性向上）
           Positioned.fill(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // 画像の元サイズ比率 (9:16 縦長)
-                // 富士山はイラスト全体の縦方向おおよそ30〜70%付近にある
-                // → alignment を (0, -0.1) で少し上寄り中央に調整
-                return Image.asset(
-                  'assets/images/login_bg_illustration.png',
-                  fit: BoxFit.cover,
-                  alignment: const Alignment(0.0, -1.0),
-                  opacity: const AlwaysStoppedAnimation(0.85),
-                );
-              },
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.25),
             ),
           ),
 
@@ -103,7 +90,7 @@ class _LoginScreenState extends State<LoginScreen>
             bottom: 0,
             left: 0,
             right: 0,
-            height: 360,
+            height: 420,
             child: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -111,10 +98,10 @@ class _LoginScreenState extends State<LoginScreen>
                   end: Alignment.bottomCenter,
                   colors: [
                     Colors.transparent,
-                    Color(0xCC3D8FBF),
-                    Color(0xFF3D8FBF),
+                    Color(0xAA000000),
+                    Color(0xDD000000),
                   ],
-                  stops: [0.0, 0.45, 1.0],
+                  stops: [0.0, 0.5, 1.0],
                 ),
               ),
             ),

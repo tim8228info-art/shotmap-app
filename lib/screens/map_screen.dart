@@ -12,10 +12,19 @@ import '../models/user_profile_provider.dart';
 import 'post_screen.dart';
 
 class MapScreen extends StatefulWidget {
-  const MapScreen({super.key});
+  final MapScreenController? controller;
+  const MapScreen({super.key, this.controller});
 
   @override
   State<MapScreen> createState() => _MapScreenState();
+}
+
+// GlobalKeyでアクセスできるようにするためのラッパー
+class MapScreenController {
+  _MapScreenState? _state;
+  void jumpTo(double lat, double lng) {
+    _state?.jumpToLocation(lat, lng);
+  }
 }
 
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
@@ -52,6 +61,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    widget.controller?._state = this;
     _loadMarkers();
   }
 
@@ -72,7 +82,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   // ── カスタムマーカーアイコン生成（ピン種別カラー対応） ──
   Future<BitmapDescriptor> _createCustomMarker(
       String imageUrl, bool isSelected, PinType pinType) async {
-    final size = isSelected ? 80.0 : 64.0;
+    final size = isSelected ? 44.0 : 36.0;
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     final paint = Paint()..isAntiAlias = true;
@@ -100,7 +110,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     );
     textPainter.text = TextSpan(
       text: pinType == PinType.sightseeing ? '🏔' : '🍴',
-      style: TextStyle(fontSize: size * 0.35),
+      style: TextStyle(fontSize: size * 0.38),
     );
     textPainter.layout();
     textPainter.paint(
@@ -227,6 +237,16 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     }
   }
 
+  // ── 外部から位置ジャンプを受け取る ──
+  void jumpToLocation(double lat, double lng) {
+    _mapController?.animateCamera(
+      CameraUpdate.newLatLngZoom(
+        LatLng(lat, lng),
+        14.0,
+      ),
+    );
+  }
+
   // ── ピン種別フィルタ変更時 ──
   void _onPinTypeFilterChanged(PinType? type) {
     setState(() {
@@ -251,7 +271,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             onMapCreated: (controller) {
               _mapController = controller;
             },
-            style: _mapStyle,
+            mapType: MapType.hybrid,
             markers: Set<Marker>.of(_markers.values),
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
@@ -266,11 +286,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             },
           ),
 
-          // ── 上部：検索バー ＆ フィルタ ──
+          // ── 上部：フィルタチップのみ（検索バー削除） ──
           SafeArea(
             child: Column(
               children: [
-                _buildSearchBar(),
                 const SizedBox(height: 8),
                 _buildPinTypeFilterChips(),
               ],
@@ -410,7 +429,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     return Consumer<UserProfileProvider>(
       builder: (_, provider, __) {
         final isSaved = provider.isSavedPin(pin.id);
-        return Container(
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -633,73 +655,71 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               const Divider(height: 1, color: Color(0xFFEEF3F6)),
               const SizedBox(height: 12),
 
-              // 下段：アクションボタン2つ
-              Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => _openSpotOnGoogleMaps(pin),
-                      child: Container(
-                        height: 46,
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryVeryLight,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.primaryLight),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.map, color: AppColors.primary, size: 18),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Googleマップで見る',
-                              style: GoogleFonts.notoSansJp(
-                                fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary,
-                              ),
-                            ),
-                          ],
+              // 下段：ナビボタンのみ（Googleマップで見るボタン削除）
+              GestureDetector(
+                onTap: () => _openGoogleMapsNavigation(pin),
+                child: Container(
+                  width: double.infinity,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppColors.primaryLight, AppColors.primary],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.35),
+                        blurRadius: 8, offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.directions, color: Colors.white, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        '経路・ナビ',
+                        style: GoogleFonts.notoSansJp(
+                          fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white,
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => _openGoogleMapsNavigation(pin),
-                      child: Container(
-                        height: 46,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [AppColors.primaryLight, AppColors.primary],
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.35),
-                              blurRadius: 8, offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.directions, color: Colors.white, size: 18),
-                            const SizedBox(width: 6),
-                            Text(
-                              '経路・ナビ',
-                              style: GoogleFonts.notoSansJp(
-                                fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
+        ),
+            // ── ×ボタン（右上） ──
+            Positioned(
+              top: -12,
+              right: -8,
+              child: GestureDetector(
+                onTap: () {
+                  setState(() => _selectedPin = null);
+                  _loadMarkers();
+                },
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.border, width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.close, size: 16, color: AppColors.textSecondary),
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -738,26 +758,46 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _shareToSns(SpotPin pin, String platform) async {
-    final text = Uri.encodeComponent(
-      '📍 ${pin.title}\n${pin.prefecture} \n\nShotmapで発見しました！\n#shotmap #写真スポット #${pin.prefecture}',
+    const shotmapUrl = 'https://shotmap.app';
+    final shareText = Uri.encodeComponent(
+      '📍 ${pin.title}\n${pin.prefecture}\n\nShotmapで発見しました！\n$shotmapUrl\n#shotmap #写真スポット #${pin.prefecture}',
     );
     Uri uri;
     if (platform == 'x') {
-      uri = Uri.parse('https://twitter.com/intent/tweet?text=$text');
-    } else {
-      // Instagram はWeb共有をサポートしないため、コピー動作にフォールバック
-      _copyShareLink(pin);
+      uri = Uri.parse('https://twitter.com/intent/tweet?text=$shareText');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        return;
+      }
+    } else if (platform == 'instagram') {
+      // Instagram はWeb共有をサポートしないため、URLつきでクリップボードコピー
+      final copyText = '📍 ${pin.title}（${pin.prefecture}）\n\nShotmapで発見しました！\n$shotmapUrl\n#shotmap #写真スポット';
+      await Clipboard.setData(ClipboardData(text: copyText));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(children: [
+              const Icon(Icons.check_circle, color: Colors.white, size: 16),
+              const SizedBox(width: 8),
+              Text('テキストをコピーしました（Instagramに貼り付けてください）',
+                  style: GoogleFonts.notoSansJp(fontSize: 12)),
+            ]),
+            backgroundColor: const Color(0xFFDD2A7B),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.all(16),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
       return;
     }
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      _copyShareLink(pin);
-    }
+    _copyShareLink(pin);
   }
 
   void _copyShareLink(SpotPin pin) {
-    final text = '📍 ${pin.title}（${pin.prefecture}）\n#shotmap #写真スポット';
+    const shotmapUrl = 'https://shotmap.app';
+    final text = '📍 ${pin.title}（${pin.prefecture}）\n\nShotmapで発見しました！\n$shotmapUrl\n#shotmap #写真スポット';
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
