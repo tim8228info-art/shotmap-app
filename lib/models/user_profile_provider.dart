@@ -51,8 +51,11 @@ class UserProfileProvider extends ChangeNotifier {
   bool get hideFollowing => _profile.hideFollowing;
 
   // 保存済みスポット（新着順）
-  List<SavedSpot> get savedSpots =>
-      List.unmodifiable(_savedSpots)..sort((a, b) => b.savedAt.compareTo(a.savedAt));
+  List<SavedSpot> get savedSpots {
+    final sorted = List<SavedSpot>.from(_savedSpots)
+      ..sort((a, b) => b.savedAt.compareTo(a.savedAt));
+    return List.unmodifiable(sorted);
+  }
 
   // フォロー中UID一覧
   Set<String> get followingUids => Set.unmodifiable(_followingUids);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -11,10 +12,6 @@ import 'privacy_screen.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // ProfileScreen  ―  マイページ
-//   タブ①：プロフィール（統計 + SNSリンク）
-//   タブ②：保存済みスポット
-//   タブ③：フォロー中ユーザー
-// ※ NestedScrollView は使わず DefaultTabController + CustomScrollView で実装
 // ═══════════════════════════════════════════════════════════════
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -27,7 +24,6 @@ class _ProfileScreenState extends State<ProfileScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // SNS メタ情報
   static const List<_SnsConfig> _snsMeta = [
     _SnsConfig(
       key: 'instagram',
@@ -41,24 +37,21 @@ class _ProfileScreenState extends State<ProfileScreen>
       key: 'youtube',
       platform: 'YouTube',
       icon: Icons.play_circle_fill,
-      gradient:
-          LinearGradient(colors: [Color(0xFFFF0000), Color(0xFFCC0000)]),
+      gradient: LinearGradient(colors: [Color(0xFFFF0000), Color(0xFFCC0000)]),
       shadowColor: Color(0xFFFF0000),
     ),
     _SnsConfig(
       key: 'x',
       platform: 'X',
       icon: Icons.close,
-      gradient:
-          LinearGradient(colors: [Color(0xFF1A1A1A), Color(0xFF444444)]),
+      gradient: LinearGradient(colors: [Color(0xFF1A1A1A), Color(0xFF444444)]),
       shadowColor: Color(0xFF1A1A1A),
     ),
     _SnsConfig(
       key: 'tiktok',
       platform: 'TikTok',
       icon: Icons.music_note,
-      gradient:
-          LinearGradient(colors: [Color(0xFF010101), Color(0xFF69C9D0)]),
+      gradient: LinearGradient(colors: [Color(0xFF010101), Color(0xFF69C9D0)]),
       shadowColor: Color(0xFF010101),
     ),
   ];
@@ -76,7 +69,6 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.dispose();
   }
 
-  // SNS URL 取得
   String _urlFor(UserProfileProvider p, String key) {
     switch (key) {
       case 'instagram': return p.instagramUrl;
@@ -98,8 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           content: Text('URLを開けませんでした', style: GoogleFonts.notoSansJp()),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ));
       }
     }
@@ -110,8 +101,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       pageBuilder: (_, __, ___) => const EditProfileScreen(),
       transitionsBuilder: (_, anim, __, child) => SlideTransition(
         position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
-            .animate(
-                CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
+            .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
         child: child,
       ),
       transitionDuration: const Duration(milliseconds: 350),
@@ -120,41 +110,62 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   // ────────────────────────────────────────────
   // build
+  // ── iOS/Android 両対応: AnnotatedRegion + Scaffold
+  // ── iOS TestFlight グレーフラッシュ対策:
+  //    ① Scaffold.backgroundColor をヘッダーと同じ青に設定
+  //    ② body を Column で包み最上部からグラデーションが見えるようにする
   // ────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return Consumer<UserProfileProvider>(
-      builder: (context, provider, _) {
-        return Scaffold(
-          backgroundColor: AppColors.background,
-          body: Column(
-            children: [
-              // ── ヘッダー（固定） ──
-              _buildHeader(context, provider),
-              // ── タブバー（固定） ──
-              _buildTabBar(),
-              // ── タブコンテンツ（スクロール） ──
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildProfileTab(context, provider),
-                    _buildSavedTab(provider),
-                    _buildFollowTab(context, provider, isOwnProfile: true),
-                  ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark, // iOS用
+      ),
+      child: Consumer<UserProfileProvider>(
+        builder: (context, provider, _) {
+          return Scaffold(
+            // ① ヘッダーグラデーションのトップカラーと同じ色にすることで
+            //    IndexedStack初回描画時のグレーフラッシュを防ぐ
+            backgroundColor: const Color(0xFFB3D9F2),
+            body: Column(
+              children: [
+                // ── ヘッダー：ステータスバー高さを含む ──
+                _buildHeader(context, provider),
+                // ── タブバー ──
+                ColoredBox(
+                  color: AppColors.background,
+                  child: _buildTabBar(),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
+                // ── コンテンツ ──
+                Expanded(
+                  child: ColoredBox(
+                    color: AppColors.background,
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildProfileTab(context, provider),
+                        _buildSavedTab(provider),
+                        _buildFollowTab(context, provider, isOwnProfile: true),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
   // ════════════════════════════════════════════
-  // ヘッダー（青いグラデーション背景 + アバター + 名前）
+  // ヘッダー
+  // MediaQuery.of(context).padding.top でステータスバー高さを取得して埋める
   // ════════════════════════════════════════════
   Widget _buildHeader(BuildContext context, UserProfileProvider provider) {
+    final topPadding = MediaQuery.of(context).padding.top;
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -163,150 +174,135 @@ class _ProfileScreenState extends State<ProfileScreen>
           colors: [Color(0xFFB3D9F2), Color(0xFF7BBFE0), Color(0xFF5BA4CF)],
         ),
       ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 16, 20),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // アバター
-              Container(
-                width: 76,
-                height: 76,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.18),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: ClipOval(
-                  child: Image.network(
-                    provider.avatarUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: AppColors.primaryLight,
-                      child: const Icon(Icons.person,
-                          color: Colors.white, size: 40),
-                    ),
+      child: Padding(
+        // topにステータスバー高さを加算することで、グレー帯が出なくなる
+        padding: EdgeInsets.fromLTRB(20, topPadding + 12, 16, 20),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // アバター
+            Container(
+              width: 76,
+              height: 76,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 3),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipOval(
+                child: Image.network(
+                  provider.avatarUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: AppColors.primaryLight,
+                    child: const Icon(Icons.person, color: Colors.white, size: 40),
                   ),
                 ),
               ),
-              const SizedBox(width: 14),
-              // 名前・ID・bio・編集ボタン
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 名前 + 編集アイコン
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            provider.name,
-                            style: GoogleFonts.notoSansJp(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () => _openEditScreen(context),
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(Icons.edit_outlined,
-                                size: 16, color: Colors.white),
-                          ),
-                        ),
-                      ],
-                    ),
-                    // カスタムID
-                    if (provider.customId.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.22),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+            ),
+            const SizedBox(width: 14),
+            // 名前・ID・bio・編集ボタン
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
                         child: Text(
-                          '@${provider.customId}',
+                          provider.name,
                           style: GoogleFonts.notoSansJp(
-                            fontSize: 11,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
                             color: Colors.white,
-                            fontWeight: FontWeight.w600,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => _openEditScreen(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.edit_outlined,
+                              size: 16, color: Colors.white),
                         ),
                       ),
                     ],
-                    // bio
-                    const SizedBox(height: 5),
-                    Text(
-                      provider.bio.isEmpty
-                          ? 'タップして紹介文を追加しよう'
-                          : provider.bio,
-                      style: GoogleFonts.notoSansJp(
-                        fontSize: 12,
-                        color: provider.bio.isEmpty
-                            ? Colors.white.withValues(alpha: 0.55)
-                            : Colors.white.withValues(alpha: 0.9),
-                        height: 1.4,
-                        fontStyle: provider.bio.isEmpty
-                            ? FontStyle.italic
-                            : FontStyle.normal,
+                  ),
+                  if (provider.customId.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 10),
-                    // プロフィール編集ボタン
-                    GestureDetector(
-                      onTap: () => _openEditScreen(context),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.5)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.edit_outlined,
-                                size: 13, color: Colors.white),
-                            const SizedBox(width: 5),
-                            Text(
-                              'プロフィール編集',
-                              style: GoogleFonts.notoSansJp(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
+                      child: Text(
+                        '@${provider.customId}',
+                        style: GoogleFonts.notoSansJp(
+                          fontSize: 11,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                   ],
-                ),
+                  const SizedBox(height: 5),
+                  Text(
+                    provider.bio.isEmpty ? 'タップして紹介文を追加しよう' : provider.bio,
+                    style: GoogleFonts.notoSansJp(
+                      fontSize: 12,
+                      color: provider.bio.isEmpty
+                          ? Colors.white.withValues(alpha: 0.55)
+                          : Colors.white.withValues(alpha: 0.9),
+                      height: 1.4,
+                      fontStyle: provider.bio.isEmpty ? FontStyle.italic : FontStyle.normal,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    onTap: () => _openEditScreen(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.edit_outlined, size: 13, color: Colors.white),
+                          const SizedBox(width: 5),
+                          Text(
+                            'プロフィール編集',
+                            style: GoogleFonts.notoSansJp(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -324,10 +320,8 @@ class _ProfileScreenState extends State<ProfileScreen>
         unselectedLabelColor: AppColors.textHint,
         indicatorColor: AppColors.primary,
         indicatorWeight: 2.5,
-        labelStyle: GoogleFonts.notoSansJp(
-            fontWeight: FontWeight.w700, fontSize: 12),
-        unselectedLabelStyle:
-            GoogleFonts.notoSansJp(fontWeight: FontWeight.w400, fontSize: 12),
+        labelStyle: GoogleFonts.notoSansJp(fontWeight: FontWeight.w700, fontSize: 12),
+        unselectedLabelStyle: GoogleFonts.notoSansJp(fontWeight: FontWeight.w400, fontSize: 12),
         tabs: const [
           Tab(icon: Icon(Icons.person_outline, size: 17), text: 'プロフィール'),
           Tab(icon: Icon(Icons.bookmark_outline, size: 17), text: '保存済み'),
@@ -340,8 +334,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   // ════════════════════════════════════════════
   // タブ① ： プロフィール
   // ════════════════════════════════════════════
-  Widget _buildProfileTab(
-      BuildContext context, UserProfileProvider provider) {
+  Widget _buildProfileTab(BuildContext context, UserProfileProvider provider) {
     return ListView(
       padding: const EdgeInsets.only(bottom: 40),
       children: [
@@ -352,7 +345,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  // ── 実績カード ──
+  // ── 実績カード（ランクバナーを削除済み） ──
   Widget _buildStatsSection(UserProfileProvider provider) {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 20, 16, 0),
@@ -414,49 +407,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          // ランクバナー
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                  colors: [Color(0xFFE3F4FC), Color(0xFFD0EBFA)]),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: const BoxDecoration(
-                      color: AppColors.primary, shape: BoxShape.circle),
-                  child: const Center(
-                      child: Text('🌱', style: TextStyle(fontSize: 22))),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('ランク: ビギナー',
-                          style: GoogleFonts.notoSansJp(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.primaryDark,
-                          )),
-                      Text('ピンを投稿してランクアップしよう！',
-                          style: GoogleFonts.notoSansJp(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          )),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.arrow_forward_ios,
-                    size: 14, color: AppColors.primary),
-              ],
-            ),
-          ),
+          // ランクバナーは削除
         ],
       ),
     );
@@ -472,8 +423,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   }) {
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration:
-          BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -500,19 +450,15 @@ class _ProfileScreenState extends State<ProfileScreen>
             ]),
           ),
           const SizedBox(height: 2),
-          Text(label,
-              style: GoogleFonts.notoSansJp(
-                  fontSize: 11, color: AppColors.textSecondary)),
+          Text(label, style: GoogleFonts.notoSansJp(fontSize: 11, color: AppColors.textSecondary)),
         ],
       ),
     );
   }
 
   // ── SNS セクション ──
-  Widget _buildSnsSection(
-      BuildContext context, UserProfileProvider provider) {
+  Widget _buildSnsSection(BuildContext context, UserProfileProvider provider) {
     final anySet = _snsMeta.any((m) => _urlFor(provider, m.key).isNotEmpty);
-
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       padding: const EdgeInsets.all(20),
@@ -525,17 +471,13 @@ class _ProfileScreenState extends State<ProfileScreen>
               _sectionTitle(Icons.link, 'SNSリンク'),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                    color: AppColors.tagBlue,
-                    borderRadius: BorderRadius.circular(8)),
+                    color: AppColors.tagBlue, borderRadius: BorderRadius.circular(8)),
                 child: Text(
                   'あなたの名刺として活用',
                   style: GoogleFonts.notoSansJp(
-                    fontSize: 10,
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -569,15 +511,12 @@ class _ProfileScreenState extends State<ProfileScreen>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.add_link,
-                        size: 16, color: AppColors.primary),
+                    const Icon(Icons.add_link, size: 16, color: AppColors.primary),
                     const SizedBox(width: 6),
                     Text(
                       'プロフィール編集でSNSを登録しよう',
                       style: GoogleFonts.notoSansJp(
-                        fontSize: 13,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -590,8 +529,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _snsButton(
-      BuildContext context, _SnsConfig meta, String url) {
+  Widget _snsButton(BuildContext context, _SnsConfig meta, String url) {
     final hasUrl = url.isNotEmpty;
     return GestureDetector(
       onTap: () {
@@ -610,13 +548,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             gradient: meta.gradient,
             borderRadius: BorderRadius.circular(14),
             boxShadow: hasUrl
-                ? [
-                    BoxShadow(
-                      color: meta.shadowColor.withValues(alpha: 0.28),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    )
-                  ]
+                ? [BoxShadow(color: meta.shadowColor.withValues(alpha: 0.28), blurRadius: 8, offset: const Offset(0, 3))]
                 : null,
           ),
           child: Row(
@@ -629,15 +561,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(meta.platform,
-                        style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white)),
-                    Text(
-                        hasUrl ? 'タップして開く' : '未設定',
-                        style: GoogleFonts.notoSansJp(
-                            fontSize: 9,
-                            color: Colors.white.withValues(alpha: 0.75))),
+                        style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+                    Text(hasUrl ? 'タップして開く' : '未設定',
+                        style: GoogleFonts.notoSansJp(fontSize: 9, color: Colors.white.withValues(alpha: 0.75))),
                   ],
                 ),
               ),
@@ -666,18 +592,11 @@ class _ProfileScreenState extends State<ProfileScreen>
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
             child: Row(
               children: [
-                const Icon(Icons.info_outline,
-                    size: 16, color: AppColors.textHint),
+                const Icon(Icons.info_outline, size: 16, color: AppColors.textHint),
                 const SizedBox(width: 6),
-                Text(
-                  'アプリについて',
-                  style: GoogleFonts.notoSansJp(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textHint,
-                    letterSpacing: 0.5,
-                  ),
-                ),
+                Text('アプリについて',
+                    style: GoogleFonts.notoSansJp(
+                        fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textHint, letterSpacing: 0.5)),
               ],
             ),
           ),
@@ -687,9 +606,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             icon: Icons.gavel,
             iconColor: AppColors.primary,
             title: '利用規約',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const TermsScreen()),
-            ),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TermsScreen())),
           ),
           const Divider(height: 1, indent: 56, color: Color(0xFFEEF3F6)),
           _legalListTile(
@@ -697,9 +614,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             icon: Icons.privacy_tip_outlined,
             iconColor: const Color(0xFF00897B),
             title: 'プライバシーポリシー',
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const PrivacyScreen()),
-            ),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PrivacyScreen())),
           ),
         ],
       ),
@@ -721,8 +636,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         child: Row(
           children: [
             Container(
-              width: 32,
-              height: 32,
+              width: 32, height: 32,
               decoration: BoxDecoration(
                 color: iconColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
@@ -731,17 +645,11 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                title,
-                style: GoogleFonts.notoSansJp(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
+              child: Text(title,
+                  style: GoogleFonts.notoSansJp(
+                      fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
             ),
-            const Icon(Icons.chevron_right,
-                size: 18, color: AppColors.textHint),
+            const Icon(Icons.chevron_right, size: 18, color: AppColors.textHint),
           ],
         ),
       ),
@@ -754,7 +662,6 @@ class _ProfileScreenState extends State<ProfileScreen>
   Widget _buildSavedTab(UserProfileProvider provider) {
     final saved = List<SavedSpot>.from(provider.savedSpots)
       ..sort((a, b) => b.savedAt.compareTo(a.savedAt));
-
     if (saved.isEmpty) {
       return _emptyState(
         icon: Icons.bookmark_outline,
@@ -762,7 +669,6 @@ class _ProfileScreenState extends State<ProfileScreen>
         subtitle: 'マップやトレンドのスポットを\n保存するとここに表示されます',
       );
     }
-
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
       itemCount: saved.length,
@@ -777,27 +683,19 @@ class _ProfileScreenState extends State<ProfileScreen>
       decoration: _cardDecoration(),
       child: Row(
         children: [
-          // サムネイル
           ClipRRect(
             borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(20),
-              bottomLeft: Radius.circular(20),
+              topLeft: Radius.circular(20), bottomLeft: Radius.circular(20),
             ),
             child: Image.network(
-              spot.imageUrl,
-              width: 90,
-              height: 90,
-              fit: BoxFit.cover,
+              spot.imageUrl, width: 90, height: 90, fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Container(
-                width: 90,
-                height: 90,
-                color: AppColors.primaryVeryLight,
+                width: 90, height: 90, color: AppColors.primaryVeryLight,
                 child: const Icon(Icons.image, color: AppColors.primary),
               ),
             ),
           ),
           const SizedBox(width: 12),
-          // テキスト
           Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
@@ -807,79 +705,57 @@ class _ProfileScreenState extends State<ProfileScreen>
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 7, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(
-                          color: isPin
-                              ? AppColors.tagBlue
-                              : const Color(0xFFFFF0E6),
+                          color: isPin ? AppColors.tagBlue : const Color(0xFFFFF0E6),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           isPin ? '📍 マップ' : '🔥 トレンド',
                           style: GoogleFonts.notoSansJp(
                             fontSize: 10,
-                            color: isPin
-                                ? AppColors.primary
-                                : const Color(0xFFD4915A),
+                            color: isPin ? AppColors.primary : const Color(0xFFD4915A),
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
                       const SizedBox(width: 6),
                       Text(spot.prefecture,
-                          style: GoogleFonts.notoSansJp(
-                              fontSize: 11, color: AppColors.textHint)),
+                          style: GoogleFonts.notoSansJp(fontSize: 11, color: AppColors.textHint)),
                     ],
                   ),
                   const SizedBox(height: 5),
-                  Text(
-                    spot.title,
-                    style: GoogleFonts.notoSansJp(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  Text(spot.title,
+                      style: GoogleFonts.notoSansJp(
+                          fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                      maxLines: 2, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 4),
                   Wrap(
                     spacing: 4,
                     children: spot.tags.take(2).map((tag) {
                       return Text(tag,
                           style: GoogleFonts.notoSansJp(
-                            fontSize: 10,
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                          ));
+                              fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600));
                     }).toList(),
                   ),
                 ],
               ),
             ),
           ),
-          // 保存解除ボタン
           Padding(
             padding: const EdgeInsets.only(right: 12),
             child: GestureDetector(
               onTap: () {
-                if (isPin) {
-                  provider.unsavePin(spot.id);
-                } else {
-                  provider.unsaveTrend(spot.id);
-                }
+                if (isPin) { provider.unsavePin(spot.id); } else { provider.unsaveTrend(spot.id); }
               },
               child: Container(
-                width: 34,
-                height: 34,
+                width: 34, height: 34,
                 decoration: BoxDecoration(
                   color: const Color(0xFFFFF3CD),
                   shape: BoxShape.circle,
                   border: Border.all(color: const Color(0xFFFFD700)),
                 ),
-                child: const Icon(Icons.bookmark,
-                    size: 17, color: Color(0xFFFFAA00)),
+                child: const Icon(Icons.bookmark, size: 17, color: Color(0xFFFFAA00)),
               ),
             ),
           ),
@@ -890,20 +766,10 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   // ════════════════════════════════════════════
   // タブ③ ： フォロー管理
-  // [引数] isOwnProfile : true=自分のページ  false=他ユーザーが閲覧
   // ════════════════════════════════════════════
-  Widget _buildFollowTab(
-      BuildContext context,
-      UserProfileProvider provider, {
-      bool isOwnProfile = false,
-  }) {
-    // 自分以外が閲覧 & 非公開設定 ON → ブロック表示
-    if (!isOwnProfile && provider.hideFollowing) {
-      return _followHiddenBlock();
-    }
-
+  Widget _buildFollowTab(BuildContext context, UserProfileProvider provider, {bool isOwnProfile = false}) {
+    if (!isOwnProfile && provider.hideFollowing) return _followHiddenBlock();
     final following = provider.followingUsers;
-
     if (following.isEmpty) {
       return _emptyState(
         icon: Icons.people_outline,
@@ -911,22 +777,17 @@ class _ProfileScreenState extends State<ProfileScreen>
         subtitle: 'トレンドの「ユーザー検索」タブから\n気になるユーザーをフォローしよう',
       );
     }
-
-    // 自分のページで非公開中の場合：先頭に「非公開中バナー」を表示
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
       itemCount: following.length + (provider.hideFollowing ? 1 : 0),
       itemBuilder: (_, i) {
-        if (provider.hideFollowing && i == 0) {
-          return _followHiddenBanner();
-        }
+        if (provider.hideFollowing && i == 0) return _followHiddenBanner();
         final idx = provider.hideFollowing ? i - 1 : i;
         return _followingCard(context, following[idx], provider);
       },
     );
   }
 
-  // ── 他ユーザーが閲覧したときの非公開ブロック ──
   Widget _followHiddenBlock() {
     return Center(
       child: Padding(
@@ -935,66 +796,27 @@ class _ProfileScreenState extends State<ProfileScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 80,
-              height: 80,
+              width: 80, height: 80,
               decoration: BoxDecoration(
-                color: const Color(0xFFF0F4F8),
-                shape: BoxShape.circle,
+                color: const Color(0xFFF0F4F8), shape: BoxShape.circle,
                 border: Border.all(color: AppColors.border, width: 1.5),
               ),
               child: const Icon(Icons.lock, size: 38, color: AppColors.textHint),
             ),
             const SizedBox(height: 20),
-            Text(
-              '表示できません',
-              style: GoogleFonts.notoSansJp(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
-              ),
-            ),
+            Text('表示できません',
+                style: GoogleFonts.notoSansJp(
+                    fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
             const SizedBox(height: 10),
-            Text(
-              'このユーザーはフォロー一覧を\n非公開に設定しています',
-              style: GoogleFonts.notoSansJp(
-                fontSize: 14,
-                color: AppColors.textSecondary,
-                height: 1.7,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F4F8),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.shield_outlined,
-                      size: 15, color: AppColors.textHint),
-                  const SizedBox(width: 6),
-                  Text(
-                    'プライバシー保護中',
-                    style: GoogleFonts.notoSansJp(
-                      fontSize: 12,
-                      color: AppColors.textHint,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            Text('このユーザーはフォロー一覧を\n非公開に設定しています',
+                style: GoogleFonts.notoSansJp(fontSize: 14, color: AppColors.textSecondary, height: 1.7),
+                textAlign: TextAlign.center),
           ],
         ),
       ),
     );
   }
 
-  // ── 自分のページで非公開中を示すバナー ──
   Widget _followHiddenBanner() {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1011,11 +833,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           Expanded(
             child: Text(
               '現在「フォロー一覧非公開」がオンになっています。他のユーザーにはこのリストは見えません。',
-              style: GoogleFonts.notoSansJp(
-                fontSize: 12,
-                color: AppColors.primaryDark,
-                height: 1.5,
-              ),
+              style: GoogleFonts.notoSansJp(fontSize: 12, color: AppColors.primaryDark, height: 1.5),
             ),
           ),
         ],
@@ -1023,36 +841,30 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _followingCard(BuildContext context, AppUser user,
-      UserProfileProvider provider) {
+  Widget _followingCard(BuildContext context, AppUser user, UserProfileProvider provider) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: _cardDecoration(),
       child: Row(
         children: [
-          // アバター
           Container(
-            width: 52,
-            height: 52,
+            width: 52, height: 52,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.primaryLight, width: 2),
             ),
             child: ClipOval(
               child: Image.network(
-                user.avatarUrl,
-                fit: BoxFit.cover,
+                user.avatarUrl, fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => Container(
                   color: AppColors.primaryLight,
-                  child:
-                      const Icon(Icons.person, color: Colors.white, size: 28),
+                  child: const Icon(Icons.person, color: Colors.white, size: 28),
                 ),
               ),
             ),
           ),
           const SizedBox(width: 12),
-          // ユーザー情報
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1060,20 +872,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                 Row(
                   children: [
                     Flexible(
-                      child: Text(
-                        user.name,
-                        style: GoogleFonts.notoSansJp(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      child: Text(user.name,
+                          style: GoogleFonts.notoSansJp(
+                              fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                          overflow: TextOverflow.ellipsis),
                     ),
                     const SizedBox(width: 5),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: AppColors.primaryVeryLight,
                         borderRadius: BorderRadius.circular(7),
@@ -1081,47 +887,33 @@ class _ProfileScreenState extends State<ProfileScreen>
                       ),
                       child: Text('@${user.customId}',
                           style: GoogleFonts.notoSansJp(
-                            fontSize: 10,
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w600,
-                          )),
+                              fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  user.bio,
-                  style: GoogleFonts.notoSansJp(
-                    fontSize: 12,
-                    color: AppColors.textSecondary,
-                    height: 1.4,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                Text(user.bio,
+                    style: GoogleFonts.notoSansJp(
+                        fontSize: 12, color: AppColors.textSecondary, height: 1.4),
+                    maxLines: 2, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.push_pin,
-                        size: 11, color: AppColors.textHint),
+                    const Icon(Icons.push_pin, size: 11, color: AppColors.textHint),
                     const SizedBox(width: 2),
                     Text('${user.pinCount}スポット',
-                        style: GoogleFonts.notoSansJp(
-                            fontSize: 11, color: AppColors.textHint)),
+                        style: GoogleFonts.notoSansJp(fontSize: 11, color: AppColors.textHint)),
                     const SizedBox(width: 8),
-                    const Icon(Icons.people,
-                        size: 11, color: AppColors.textHint),
+                    const Icon(Icons.people, size: 11, color: AppColors.textHint),
                     const SizedBox(width: 2),
                     Text('${user.followerCount}フォロワー',
-                        style: GoogleFonts.notoSansJp(
-                            fontSize: 11, color: AppColors.textHint)),
+                        style: GoogleFonts.notoSansJp(fontSize: 11, color: AppColors.textHint)),
                   ],
                 ),
               ],
             ),
           ),
           const SizedBox(width: 10),
-          // フォロー解除ボタン
           GestureDetector(
             onTap: () {
               provider.unfollow(user.uid);
@@ -1130,28 +922,21 @@ class _ProfileScreenState extends State<ProfileScreen>
                     style: GoogleFonts.notoSansJp(fontSize: 13)),
                 backgroundColor: AppColors.textSecondary,
                 behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 margin: const EdgeInsets.all(16),
                 duration: const Duration(seconds: 2),
               ));
             },
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
                 color: AppColors.primaryVeryLight,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppColors.primaryLight),
               ),
-              child: Text(
-                'フォロー中',
-                style: GoogleFonts.notoSansJp(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primary,
-                ),
-              ),
+              child: Text('フォロー中',
+                  style: GoogleFonts.notoSansJp(
+                      fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary)),
             ),
           ),
         ],
@@ -1160,13 +945,9 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   // ════════════════════════════════════════════
-  // 共通：空状態ウィジェット
+  // 共通：空状態
   // ════════════════════════════════════════════
-  Widget _emptyState({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
+  Widget _emptyState({required IconData icon, required String title, required String subtitle}) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -1174,34 +955,19 @@ class _ProfileScreenState extends State<ProfileScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 72,
-              height: 72,
-              decoration: const BoxDecoration(
-                color: AppColors.primaryVeryLight,
-                shape: BoxShape.circle,
-              ),
+              width: 72, height: 72,
+              decoration: const BoxDecoration(color: AppColors.primaryVeryLight, shape: BoxShape.circle),
               child: Icon(icon, size: 36, color: AppColors.primary),
             ),
             const SizedBox(height: 16),
-            Text(
-              title,
-              style: GoogleFonts.notoSansJp(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            Text(title,
+                style: GoogleFonts.notoSansJp(
+                    fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                textAlign: TextAlign.center),
             const SizedBox(height: 8),
-            Text(
-              subtitle,
-              style: GoogleFonts.notoSansJp(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-                height: 1.6,
-              ),
-              textAlign: TextAlign.center,
-            ),
+            Text(subtitle,
+                style: GoogleFonts.notoSansJp(fontSize: 13, color: AppColors.textSecondary, height: 1.6),
+                textAlign: TextAlign.center),
           ],
         ),
       ),
@@ -1217,11 +983,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       borderRadius: BorderRadius.circular(20),
       border: Border.all(color: AppColors.border),
       boxShadow: [
-        BoxShadow(
-          color: AppColors.primaryDark.withValues(alpha: 0.06),
-          blurRadius: 12,
-          offset: const Offset(0, 3),
-        ),
+        BoxShadow(color: AppColors.primaryDark.withValues(alpha: 0.06), blurRadius: 12, offset: const Offset(0, 3)),
       ],
     );
   }
@@ -1231,14 +993,9 @@ class _ProfileScreenState extends State<ProfileScreen>
       children: [
         Icon(icon, color: AppColors.primary, size: 18),
         const SizedBox(width: 6),
-        Text(
-          title,
-          style: GoogleFonts.notoSansJp(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-        ),
+        Text(title,
+            style: GoogleFonts.notoSansJp(
+                fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
       ],
     );
   }
