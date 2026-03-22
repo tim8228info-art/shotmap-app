@@ -18,13 +18,38 @@ class _MovieScreenState extends State<MovieScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // 各ジャンルの表示リスト（30件）
+  // 各ジャンルの表示リスト
   List<RecommendItem> _sightseeingItems = [];
-  List<RecommendItem> _cafeItems = [];
+  List<RecommendItem> _gourmetItems = [];
   List<RecommendItem> _hotelItems = [];
 
   // ローディング状態
   bool _isRefreshing = false;
+
+  // ── 都道府県フィルター ──
+  String? _selectedPrefecture;
+
+  static const List<String> _prefectures = [
+    '北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県',
+    '茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県',
+    '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県',
+    '岐阜県', '静岡県', '愛知県', '三重県',
+    '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県',
+    '鳥取県', '島根県', '岡山県', '広島県', '山口県',
+    '徳島県', '香川県', '愛媛県', '高知県',
+    '福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県',
+  ];
+
+  static const Map<String, List<String>> _regionMap = {
+    '北海道': ['北海道'],
+    '東北': ['青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県'],
+    '関東': ['茨城県', '栃木県', '群馬県', '埼玉県', '千葉県', '東京都', '神奈川県'],
+    '中部': ['新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県', '岐阜県', '静岡県', '愛知県'],
+    '近畿': ['三重県', '滋賀県', '京都府', '大阪府', '兵庫県', '奈良県', '和歌山県'],
+    '中国': ['鳥取県', '島根県', '岡山県', '広島県', '山口県'],
+    '四国': ['徳島県', '香川県', '愛媛県', '高知県'],
+    '九州・沖縄': ['福岡県', '佐賀県', '長崎県', '熊本県', '大分県', '宮崎県', '鹿児島県', '沖縄県'],
+  };
 
   // ジャンル定義
   static const List<_Genre> _genres = [
@@ -37,10 +62,10 @@ class _MovieScreenState extends State<MovieScreen>
       gradient: [Color(0xFF5BA4CF), Color(0xFF3D8FBF)],
     ),
     _Genre(
-      key: RecommendGenre.cafe,
-      label: 'おすすめカフェ',
-      icon: Icons.coffee_outlined,
-      activeIcon: Icons.coffee,
+      key: RecommendGenre.gourmet,
+      label: 'おすすめグルメ',
+      icon: Icons.restaurant_outlined,
+      activeIcon: Icons.restaurant,
       color: Color(0xFFD4915A),
       gradient: [Color(0xFFE8A87C), Color(0xFFD4915A)],
     ),
@@ -67,16 +92,34 @@ class _MovieScreenState extends State<MovieScreen>
     super.dispose();
   }
 
-  // ── リストをシャッフルして返す（プルリフレッシュで順番が変わる）
+  // ── リストをシャッフルして30件返す（フィルターなし時は常時30件）
   List<RecommendItem> _shuffled(List<RecommendItem> base) {
     final rng = Random();
-    return List<RecommendItem>.from(base)..shuffle(rng);
+    final list = List<RecommendItem>.from(base)..shuffle(rng);
+    return list.take(30).toList();
   }
+
+  // ── 都道府県フィルター適用 ──
+  // 選択中は選択都道府県のアイテムのみ表示（他県では補完しない）
+  List<RecommendItem> _filtered(List<RecommendItem> base, List<RecommendItem> allData) {
+    if (_selectedPrefecture == null) return base; // フィルターなし: シャッフル済み30件
+    // 選択都道府県のアイテムのみ抽出（他県は一切含めない）
+    return allData
+        .where((item) => item.prefecture == _selectedPrefecture)
+        .toList();
+  }
+
+  List<RecommendItem> get _currentSightseeing =>
+      _filtered(_sightseeingItems, SampleData.sightseeingList);
+  List<RecommendItem> get _currentCafe =>
+      _filtered(_gourmetItems, SampleData.gourmetList);
+  List<RecommendItem> get _currentHotel =>
+      _filtered(_hotelItems, SampleData.hotelList);
 
   void _loadItems() {
     setState(() {
       _sightseeingItems = _shuffled(SampleData.sightseeingList);
-      _cafeItems        = _shuffled(SampleData.cafeList);
+      _gourmetItems     = _shuffled(SampleData.gourmetList);
       _hotelItems       = _shuffled(SampleData.hotelList);
     });
   }
@@ -116,8 +159,10 @@ class _MovieScreenState extends State<MovieScreen>
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          // ── ヘッダー（アイコン＋外部リンクバッジのみ、文字なし）──
+          // ── ヘッダー ──
           _buildHeader(),
+          // ── 都道府県フィルター ──
+          _buildPrefectureFilter(),
           // ── タブバー ──
           _buildTabBar(),
           // ── タブコンテンツ ──
@@ -125,9 +170,9 @@ class _MovieScreenState extends State<MovieScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildGenreList(_sightseeingItems, _genres[0]),
-                _buildGenreList(_cafeItems,        _genres[1]),
-                _buildGenreList(_hotelItems,       _genres[2]),
+                _buildGenreList(_currentSightseeing, _genres[0]),
+                _buildGenreList(_currentCafe,        _genres[1]),
+                _buildGenreList(_currentHotel,       _genres[2]),
               ],
             ),
           ),
@@ -136,7 +181,7 @@ class _MovieScreenState extends State<MovieScreen>
     );
   }
 
-  // ── ヘッダー（タイトル文字なし） ──
+  // ── ヘッダー ──
   Widget _buildHeader() {
     return Container(
       color: Colors.white,
@@ -146,7 +191,6 @@ class _MovieScreenState extends State<MovieScreen>
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
           child: Row(
             children: [
-              // アイコンのみ
               Container(
                 width: 34,
                 height: 34,
@@ -158,8 +202,16 @@ class _MovieScreenState extends State<MovieScreen>
                 ),
                 child: const Icon(Icons.explore, color: Colors.white, size: 19),
               ),
+              const SizedBox(width: 10),
+              Text(
+                '都道府県で探す',
+                style: GoogleFonts.notoSansJp(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
               const Spacer(),
-              // 外部リンクバッジ
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
@@ -183,7 +235,6 @@ class _MovieScreenState extends State<MovieScreen>
                 ),
               ),
               const SizedBox(width: 8),
-              // リロードボタン
               GestureDetector(
                 onTap: _onRefresh,
                 child: Container(
@@ -212,6 +263,379 @@ class _MovieScreenState extends State<MovieScreen>
     );
   }
 
+  // ── 都道府県フィルター UI ──
+  Widget _buildPrefectureFilter() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // 現在選択表示
+              GestureDetector(
+                onTap: _showPrefectureSheet,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: _selectedPrefecture == null
+                        ? AppColors.primaryVeryLight
+                        : AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: _selectedPrefecture == null
+                          ? AppColors.primaryLight
+                          : AppColors.primary,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.location_on, size: 14, color: AppColors.primary),
+                      const SizedBox(width: 5),
+                      Text(
+                        _selectedPrefecture ?? 'すべての都道府県',
+                        style: GoogleFonts.notoSansJp(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: _showPrefectureSheet,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.tune, size: 15, color: AppColors.textSecondary),
+                      const SizedBox(width: 4),
+                      Text(
+                        '都道府県を選択',
+                        style: GoogleFonts.notoSansJp(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (_selectedPrefecture != null) ...[
+                const SizedBox(width: 6),
+                GestureDetector(
+                  onTap: () => setState(() => _selectedPrefecture = null),
+                  child: Container(
+                    width: 28, height: 28,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.close, size: 14, color: AppColors.textSecondary),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          // 地方クイックフィルター
+          SizedBox(
+            height: 32,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: _regionMap.entries.map((entry) {
+                final isActive = entry.value.contains(_selectedPrefecture);
+                return GestureDetector(
+                  onTap: () {
+                    if (entry.value.length == 1) {
+                      setState(() => _selectedPrefecture = entry.value.first);
+                    } else {
+                      _showRegionSheet(entry.key, entry.value);
+                    }
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isActive ? AppColors.primary : Colors.white.withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isActive ? AppColors.primary : AppColors.border,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      entry.key,
+                      style: GoogleFonts.notoSansJp(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isActive ? Colors.white : AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── 地方別都道府県シート ──
+  void _showRegionSheet(String regionName, List<String> prefs) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '$regionName の都道府県',
+                style: GoogleFonts.notoSansJp(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: prefs.map((pref) {
+                  final isSelected = _selectedPrefecture == pref;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() => _selectedPrefecture = pref);
+                      Navigator.pop(context);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        gradient: isSelected
+                            ? const LinearGradient(
+                                colors: [AppColors.primaryLight, AppColors.primary])
+                            : null,
+                        color: isSelected ? null : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected ? AppColors.primary : AppColors.border,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.06),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        pref,
+                        style: GoogleFonts.notoSansJp(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected ? Colors.white : AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ── 全都道府県選択シート ──
+  void _showPrefectureSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          maxChildSize: 0.95,
+          minChildSize: 0.4,
+          builder: (_, sc) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 40, height: 4,
+                          decoration: BoxDecoration(
+                            color: AppColors.border,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Text(
+                              '都道府県を選択',
+                              style: GoogleFonts.notoSansJp(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const Spacer(),
+                            GestureDetector(
+                              onTap: () {
+                                setState(() => _selectedPrefecture = null);
+                                Navigator.pop(context);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryVeryLight,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.primaryLight),
+                                ),
+                                child: Text(
+                                  'すべての都道府県を表示',
+                                  style: GoogleFonts.notoSansJp(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      controller: sc,
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+                      children: _regionMap.entries.map((entry) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              child: Text(
+                                entry.key,
+                                style: GoogleFonts.notoSansJp(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: entry.value.map((pref) {
+                                final isSelected = _selectedPrefecture == pref;
+                                return GestureDetector(
+                                  onTap: () {
+                                    setState(() => _selectedPrefecture = pref);
+                                    Navigator.pop(context);
+                                  },
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 150),
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      gradient: isSelected
+                                          ? const LinearGradient(
+                                              colors: [AppColors.primaryLight, AppColors.primary])
+                                          : null,
+                                      color: isSelected ? null : Colors.white,
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: isSelected ? AppColors.primary : AppColors.border,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.06),
+                                          blurRadius: 4,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Text(
+                                      pref,
+                                      style: GoogleFonts.notoSansJp(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                            const Divider(height: 20),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   // ── タブバー ──
   Widget _buildTabBar() {
     return Container(
@@ -237,6 +661,27 @@ class _MovieScreenState extends State<MovieScreen>
 
   // ── ジャンル別リスト（RefreshIndicator付き） ──
   Widget _buildGenreList(List<RecommendItem> items, _Genre genre) {
+    // 都道府県選択中かつ0件の場合は空状態を表示
+    if (_selectedPrefecture != null && items.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(genre.icon, size: 56, color: genre.color.withValues(alpha: 0.4)),
+            const SizedBox(height: 16),
+            Text(
+              '$_selectedPrefecture の${genre.label}情報は\nまだ登録されていません',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.notoSansJp(
+                fontSize: 15,
+                color: Colors.grey.shade500,
+                height: 1.6,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return RefreshIndicator(
       onRefresh: _onRefresh,
       color: genre.color,
@@ -248,7 +693,7 @@ class _MovieScreenState extends State<MovieScreen>
         slivers: [
           // ジャンルバナー
           SliverToBoxAdapter(child: _buildGenreBanner(genre, items.length)),
-          // カードリスト（30件）
+          // カードリスト
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             sliver: SliverList(
@@ -265,6 +710,7 @@ class _MovieScreenState extends State<MovieScreen>
 
   // ── ジャンルバナー ──
   Widget _buildGenreBanner(_Genre genre, int count) {
+    final prefLabel = _selectedPrefecture != null ? '📍$_selectedPrefecture' : '全国';
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
@@ -308,7 +754,7 @@ class _MovieScreenState extends State<MovieScreen>
                   ),
                 ),
                 Text(
-                  '下に引いてリロードで更新できます',
+                  '$prefLabel の観光情報 · 下に引いてリロード',
                   style: GoogleFonts.notoSansJp(
                     fontSize: 11,
                     color: Colors.white.withValues(alpha: 0.85),
@@ -339,6 +785,9 @@ class _MovieScreenState extends State<MovieScreen>
 
   // ── おすすめカード ──
   Widget _buildRecommendCard(RecommendItem item, _Genre genre) {
+    // 選択都道府県のアイテムかどうか（ハイライト表示用）
+    final isSelectedPref = _selectedPrefecture != null &&
+        item.prefecture == _selectedPrefecture;
     return GestureDetector(
       onTap: () => _openUrl(item.url),
       child: Container(
@@ -346,6 +795,9 @@ class _MovieScreenState extends State<MovieScreen>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
+          border: isSelectedPref
+              ? Border.all(color: genre.color, width: 2)
+              : null,
           boxShadow: [
             BoxShadow(
               color: AppColors.primaryDark.withValues(alpha: 0.08),

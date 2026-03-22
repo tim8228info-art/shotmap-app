@@ -66,7 +66,7 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
               _buildNavItem(0, Icons.map_outlined, Icons.map, 'マップ'),
               _buildNavItem(1, Icons.auto_awesome_outlined, Icons.auto_awesome, 'トレンド'),
               _buildPostButton(),
-              _buildNavItem(3, Icons.explore_outlined, Icons.explore, 'おすすめ'),
+              _buildNavItem(3, Icons.location_city_outlined, Icons.location_city, '都道府県'),
               _buildNavItem(4, Icons.person_outline, Icons.person, 'マイページ'),
             ],
           ),

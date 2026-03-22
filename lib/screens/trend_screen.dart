@@ -29,6 +29,9 @@ class _TrendScreenState extends State<TrendScreen>
   List<AppUser> _searchResults = [];
   bool _hasSearched = false;
 
+  // ─── スポットタブ：風景/グルメ切り替え ───
+  int _spotTypeIndex = 0; // 0=風景 1=グルメ
+
   // ─── おすすめタブ：カテゴリ ───
   int _recCategoryIndex = 0; // 0=観光地 1=カフェ 2=ホテル
 
@@ -116,7 +119,7 @@ class _TrendScreenState extends State<TrendScreen>
     final all = _recCategoryIndex == 0
         ? SampleData.sightseeingList
         : _recCategoryIndex == 1
-            ? SampleData.cafeList
+            ? SampleData.gourmetList
             : SampleData.hotelList;
     if (_selectedPrefecture == null) return all;
     return all.where((item) => item.prefecture == _selectedPrefecture).toList();
@@ -191,84 +194,47 @@ class _TrendScreenState extends State<TrendScreen>
       slivers: [
         // HOTバナー
         SliverToBoxAdapter(child: _buildHotBanner()),
-        // おすすめセクション
-        SliverToBoxAdapter(child: _buildRecommendSection()),
+        // 風景/グルメ切り替えタブ
+        SliverToBoxAdapter(child: _buildSpotTypeTabs()),
+        // スポット一覧
+        SliverToBoxAdapter(child: _buildTrendList()),
       ],
     );
   }
 
-  // ─── おすすめセクション全体 ───
-  Widget _buildRecommendSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // セクションタイトル
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
-          child: Row(
-            children: [
-              const Icon(Icons.recommend, color: AppColors.primary, size: 20),
-              const SizedBox(width: 6),
-              Text(
-                'おすすめ情報',
-                style: GoogleFonts.notoSansJp(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ),
-        // カテゴリ切り替え
-        _buildCategoryTabs(),
-        const SizedBox(height: 12),
-        // 都道府県セレクター
-        _buildPrefectureSelector(),
-        const SizedBox(height: 4),
-        // リスト
-        _buildRecommendList(),
-        const SizedBox(height: 32),
-      ],
-    );
-  }
-
-  // ─── カテゴリタブ（観光地・カフェ・ホテル） ───
-  Widget _buildCategoryTabs() {
-    const categories = [
-      (Icons.landscape, '観光地'),
-      (Icons.coffee, 'カフェ'),
-      (Icons.hotel, 'ホテル'),
+  // ─── 風景/グルメ切り替えタブ ───
+  Widget _buildSpotTypeTabs() {
+    const types = [
+      (Icons.landscape, '風景'),
+      (Icons.restaurant, 'グルメ'),
     ];
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Row(
-        children: List.generate(categories.length, (i) {
-          final selected = _recCategoryIndex == i;
+        children: List.generate(types.length, (i) {
+          final selected = _spotTypeIndex == i;
+          final isLandscape = i == 0;
+          final activeColor = isLandscape
+              ? const Color(0xFF2E7D32) // 風景：グリーン
+              : const Color(0xFFD4915A); // グルメ：オレンジ
           return Expanded(
             child: GestureDetector(
-              onTap: () => setState(() {
-                _recCategoryIndex = i;
-                _selectedPrefecture = null; // カテゴリ切替時に都道府県リセット
-              }),
+              onTap: () => setState(() => _spotTypeIndex = i),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                margin: EdgeInsets.only(right: i < 2 ? 8 : 0),
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                margin: EdgeInsets.only(right: i == 0 ? 8 : 0),
+                padding: const EdgeInsets.symmetric(vertical: 11),
                 decoration: BoxDecoration(
-                  gradient: selected
-                      ? const LinearGradient(
-                          colors: [AppColors.primaryLight, AppColors.primary])
-                      : null,
-                  color: selected ? null : Colors.white,
+                  color: selected ? activeColor : Colors.white,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: selected ? AppColors.primary : AppColors.border,
+                    color: selected ? activeColor : AppColors.border,
+                    width: selected ? 0 : 1,
                   ),
                   boxShadow: selected
                       ? [
                           BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.25),
+                            color: activeColor.withValues(alpha: 0.3),
                             blurRadius: 8,
                             offset: const Offset(0, 3),
                           ),
@@ -279,15 +245,15 @@ class _TrendScreenState extends State<TrendScreen>
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      categories[i].$1,
+                      types[i].$1,
                       size: 16,
                       color: selected ? Colors.white : AppColors.textSecondary,
                     ),
-                    const SizedBox(width: 5),
+                    const SizedBox(width: 6),
                     Text(
-                      categories[i].$2,
+                      types[i].$2,
                       style: GoogleFonts.notoSansJp(
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: selected ? Colors.white : AppColors.textSecondary,
                       ),
@@ -302,415 +268,30 @@ class _TrendScreenState extends State<TrendScreen>
     );
   }
 
-  // ─── 都道府県セレクター ───
-  Widget _buildPrefectureSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 現在選択 & 選択ボタン
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(
-                  color: _selectedPrefecture == null
-                      ? AppColors.primaryVeryLight
-                      : AppColors.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: _selectedPrefecture == null
-                        ? AppColors.primaryLight
-                        : AppColors.primary,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.location_on,
-                      size: 14,
-                      color: _selectedPrefecture == null
-                          ? AppColors.primary
-                          : AppColors.primary,
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      _selectedPrefecture ?? 'すべての都道府県',
-                      style: GoogleFonts.notoSansJp(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: _showPrefectureSheet,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.border),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.tune, size: 15, color: AppColors.textSecondary),
-                      const SizedBox(width: 4),
-                      Text(
-                        '都道府県を選択',
-                        style: GoogleFonts.notoSansJp(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (_selectedPrefecture != null) ...[
-                const SizedBox(width: 6),
-                GestureDetector(
-                  onTap: () => setState(() => _selectedPrefecture = null),
-                  child: Container(
-                    width: 28, height: 28,
-                    decoration: BoxDecoration(
-                      color: AppColors.border,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.close, size: 14, color: AppColors.textSecondary),
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        // 地方クイックフィルタ（横スクロール）
-        SizedBox(
-          height: 32,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            children: _regionMap.entries.map((entry) {
-              final isActive = entry.value.contains(_selectedPrefecture);
-              return GestureDetector(
-                onTap: () {
-                  if (entry.value.length == 1) {
-                    setState(() => _selectedPrefecture = entry.value.first);
-                  } else {
-                    _showRegionSheet(entry.key, entry.value);
-                  }
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isActive
-                        ? AppColors.primary
-                        : Colors.white.withValues(alpha: 0.95),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: isActive ? AppColors.primary : AppColors.border,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    entry.key,
-                    style: GoogleFonts.notoSansJp(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isActive ? Colors.white : AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ─── 地方→都道府県選択シート ───
-  void _showRegionSheet(String regionName, List<String> prefs) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 12),
-                Container(
-                  width: 40, height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '$regionName の都道府県',
-                  style: GoogleFonts.notoSansJp(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.center,
-                  children: prefs.map((pref) {
-                    final selected = _selectedPrefecture == pref;
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() => _selectedPrefecture = pref);
-                        Navigator.pop(context);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 18, vertical: 10),
-                        decoration: BoxDecoration(
-                          gradient: selected
-                              ? const LinearGradient(
-                                  colors: [AppColors.primaryLight, AppColors.primary])
-                              : null,
-                          color: selected ? null : AppColors.primaryVeryLight,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: selected ? AppColors.primary : AppColors.primaryLight,
-                          ),
-                        ),
-                        child: Text(
-                          pref,
-                          style: GoogleFonts.notoSansJp(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: selected ? Colors.white : AppColors.primaryDark,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  // ─── 全47都道府県一覧シート ───
-  void _showPrefectureSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.75,
-          maxChildSize: 0.95,
-          minChildSize: 0.4,
-          expand: false,
-          builder: (_, scrollCtrl) {
-            return Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 12),
-                  Container(
-                    width: 40, height: 4,
-                    decoration: BoxDecoration(
-                      color: AppColors.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.location_on,
-                          color: AppColors.primary, size: 18),
-                      const SizedBox(width: 6),
-                      Text(
-                        '都道府県を選択',
-                        style: GoogleFonts.notoSansJp(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  // すべて表示ボタン
-                  TextButton(
-                    onPressed: () {
-                      setState(() => _selectedPrefecture = null);
-                      Navigator.pop(context);
-                    },
-                    child: Text(
-                      'すべての都道府県を表示',
-                      style: GoogleFonts.notoSansJp(
-                        fontSize: 13,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  Expanded(
-                    child: ListView(
-                      controller: scrollCtrl,
-                      padding: const EdgeInsets.only(bottom: 24),
-                      children: _regionMap.entries.map((entry) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                              child: Text(
-                                entry.key,
-                                style: GoogleFonts.notoSansJp(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textHint,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: entry.value.map((pref) {
-                                  final selected = _selectedPrefecture == pref;
-                                  return GestureDetector(
-                                    onTap: () {
-                                      setState(() => _selectedPrefecture = pref);
-                                      Navigator.pop(context);
-                                    },
-                                    child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 150),
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 16, vertical: 9),
-                                      decoration: BoxDecoration(
-                                        gradient: selected
-                                            ? const LinearGradient(
-                                                colors: [
-                                                  AppColors.primaryLight,
-                                                  AppColors.primary,
-                                                ])
-                                            : null,
-                                        color: selected
-                                            ? null
-                                            : AppColors.primaryVeryLight,
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(
-                                          color: selected
-                                              ? AppColors.primary
-                                              : AppColors.primaryLight,
-                                        ),
-                                        boxShadow: selected
-                                            ? [
-                                                BoxShadow(
-                                                  color: AppColors.primary
-                                                      .withValues(alpha: 0.25),
-                                                  blurRadius: 6,
-                                                  offset: const Offset(0, 2),
-                                                ),
-                                              ]
-                                            : null,
-                                      ),
-                                      child: Text(
-                                        pref,
-                                        style: GoogleFonts.notoSansJp(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: selected
-                                              ? Colors.white
-                                              : AppColors.primaryDark,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ],
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  // ─── おすすめリスト ───
-  Widget _buildRecommendList() {
-    final items = _currentList;
-    if (items.isEmpty) {
+  // ─── トレンドスポット一覧 ───
+  Widget _buildTrendList() {
+    final pinType = _spotTypeIndex == 0 ? PinType.sightseeing : PinType.gourmet;
+    final spots = SampleData.trends
+        .where((s) => s.pinType == pinType)
+        .toList();
+    final sectionLabel = _spotTypeIndex == 0 ? '風景スポット' : 'グルメスポット';
+    final sectionIcon = _spotTypeIndex == 0 ? Icons.landscape : Icons.restaurant;
+    final sectionColor = _spotTypeIndex == 0
+        ? const Color(0xFF2E7D32)
+        : const Color(0xFFD4915A);
+    if (spots.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 40),
         child: Center(
           child: Column(
             children: [
-              const Icon(Icons.search_off, size: 48, color: AppColors.textHint),
+              Icon(sectionIcon, size: 48, color: AppColors.textHint),
               const SizedBox(height: 12),
               Text(
-                '${_selectedPrefecture ?? ""}のデータはまだありません',
+                'スポットがまだありません',
                 style: GoogleFonts.notoSansJp(
                   fontSize: 14,
                   color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '他の都道府県や地方を選択してください',
-                style: GoogleFonts.notoSansJp(
-                  fontSize: 12,
-                  color: AppColors.textHint,
                 ),
               ),
             ],
@@ -719,272 +300,300 @@ class _TrendScreenState extends State<TrendScreen>
       );
     }
     return Column(
-      children: items
-          .map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 0),
-                child: _buildRecommendCard(item),
-              ))
-          .toList(),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+          child: Row(
+            children: [
+              Icon(sectionIcon, color: sectionColor, size: 20),
+              const SizedBox(width: 6),
+              Text(
+                sectionLabel,
+                style: GoogleFonts.notoSansJp(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: sectionColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${spots.length}件',
+                  style: GoogleFonts.notoSansJp(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: sectionColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        ...spots.map((spot) => _buildTrendCard(spot, sectionColor)).toList(),
+        const SizedBox(height: 32),
+      ],
     );
   }
 
-  // ─── おすすめカード ───
-  Widget _buildRecommendCard(RecommendItem item) {
-    final categoryIcon = item.genre == RecommendGenre.sightseeing
-        ? Icons.landscape
-        : item.genre == RecommendGenre.cafe
-            ? Icons.coffee
-            : Icons.hotel;
-    final categoryLabel = item.genre == RecommendGenre.sightseeing
-        ? '観光地'
-        : item.genre == RecommendGenre.cafe
-            ? 'カフェ'
-            : 'ホテル';
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primaryDark.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 画像
-          ClipRRect(
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-            ),
-            child: Stack(
-              children: [
-                CachedNetworkImage(
-                  imageUrl: item.imageUrl,
-                  width: double.infinity,
-                  height: 160,
-                  fit: BoxFit.cover,
-                  placeholder: (_, __) =>
-                      Container(height: 160, color: AppColors.primaryLight),
-                  errorWidget: (_, __, ___) => Container(
-                    height: 160,
-                    color: AppColors.primaryVeryLight,
-                    child:
-                        const Icon(Icons.image, color: AppColors.primary, size: 40),
-                  ),
-                ),
-                // カテゴリバッジ
-                Positioned(
-                  top: 12, left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppColors.primaryLight, AppColors.primary],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.3),
-                          blurRadius: 6,
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(categoryIcon, size: 11, color: Colors.white),
-                        const SizedBox(width: 4),
-                        Text(
-                          categoryLabel,
-                          style: GoogleFonts.notoSansJp(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // 都道府県バッジ
-                Positioned(
-                  top: 12, right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.55),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.location_on,
-                            size: 11, color: Colors.white),
-                        const SizedBox(width: 3),
-                        Text(
-                          item.prefecture,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+  // ─── トレンドカード ───
+  Widget _buildTrendCard(TrendSpot spot, [Color? accentColor]) {
+    final cardColor = accentColor ??
+        (spot.pinType == PinType.gourmet
+            ? const Color(0xFFD4915A)
+            : const Color(0xFF2E7D32));
+    return Consumer<UserProfileProvider>(
+      builder: (_, provider, __) {
+        final isSaved = provider.isSavedTrend(spot.id);
+        return GestureDetector(
+          onTap: () => widget.onJumpToMap?.call(spot.lat, spot.lng),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primaryDark.withValues(alpha: 0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // タグ
-                Wrap(
-                  spacing: 6, runSpacing: 4,
-                  children: item.tags.map((tag) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.tagBlue,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        tag,
-                        style: GoogleFonts.notoSansJp(
-                          fontSize: 11,
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
+                ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(20),
+                    topRight: Radius.circular(20),
+                  ),
+                  child: Stack(
+                    children: [
+                      CachedNetworkImage(
+                        imageUrl: spot.imageUrl,
+                        width: double.infinity,
+                        height: 160,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) =>
+                            Container(height: 160, color: AppColors.primaryLight),
+                        errorWidget: (_, __, ___) => Container(
+                          height: 160,
+                          color: AppColors.primaryVeryLight,
+                          child: const Icon(Icons.image, color: AppColors.primary, size: 40),
                         ),
                       ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 10),
-                // タイトル
-                Text(
-                  item.title,
-                  style: GoogleFonts.notoSansJp(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                      if (spot.isHot)
+                        Positioned(
+                          top: 10, left: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFF6B6B), Color(0xFFFF6B9D)],
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text('🔥', style: TextStyle(fontSize: 10)),
+                                const SizedBox(width: 3),
+                                Text(
+                                  'HOT',
+                                  style: GoogleFonts.notoSansJp(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      Positioned(
+                        top: 10, right: 10,
+                        child: GestureDetector(
+                          onTap: () {
+                            provider.toggleSaveTrend(spot);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  isSaved ? '保存を解除しました' : 'スポットを保存しました',
+                                  style: GoogleFonts.notoSansJp(fontSize: 13),
+                                ),
+                                backgroundColor: AppColors.primaryDark,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                                margin: const EdgeInsets.all(16),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: 34, height: 34,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.45),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isSaved ? Icons.bookmark : Icons.bookmark_border,
+                              color: isSaved ? const Color(0xFFFFD700) : Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                // エリア & サイト名
-                Row(
-                  children: [
-                    const Icon(Icons.place,
-                        size: 13, color: AppColors.textHint),
-                    const SizedBox(width: 3),
-                    Text(
-                      item.area,
-                      style: GoogleFonts.notoSansJp(
-                        fontSize: 12,
-                        color: AppColors.textHint,
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on, size: 13, color: AppColors.textHint),
+                          const SizedBox(width: 3),
+                          Text(
+                            spot.prefecture,
+                            style: GoogleFonts.notoSansJp(
+                              fontSize: 12,
+                              color: AppColors.textHint,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Icon(Icons.open_in_new,
-                        size: 12, color: AppColors.textHint),
-                    const SizedBox(width: 3),
-                    Text(
-                      item.siteName,
-                      style: GoogleFonts.notoSansJp(
-                        fontSize: 12,
-                        color: AppColors.textHint,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                // 説明
-                Text(
-                  item.description,
-                  style: GoogleFonts.notoSansJp(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                    height: 1.6,
-                  ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 12),
-                // 下部ボタン行
-                Row(
-                  children: [
-                    // 評価
-                    if (item.rating != null) ...[
-                      const Icon(Icons.star_rounded,
-                          size: 16, color: Color(0xFFFFB300)),
-                      const SizedBox(width: 3),
+                      const SizedBox(height: 6),
                       Text(
-                        item.rating!.toStringAsFixed(1),
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
+                        spot.title,
+                        style: GoogleFonts.notoSansJp(
+                          fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textPrimary,
                         ),
                       ),
-                    ],
-                    const Spacer(),
-                    // 詳細を見るボタン
-                    GestureDetector(
-                      onTap: () => _launchUrl(item.url),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 9),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [AppColors.primaryLight, AppColors.primary],
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
+                      const SizedBox(height: 4),
+                      Text(
+                        spot.description,
+                        style: GoogleFonts.notoSansJp(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                          height: 1.6,
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.open_in_new,
-                                size: 13, color: Colors.white),
-                            const SizedBox(width: 5),
-                            Text(
-                              '詳細を見る',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6, runSpacing: 4,
+                        children: spot.tags.map((tag) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.tagBlue,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              tag,
                               style: GoogleFonts.notoSansJp(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                                fontSize: 11,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
-                          ],
-                        ),
+                          );
+                        }).toList(),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          // ピンタイプバッジ
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: cardColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: cardColor.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  spot.pinType == PinType.gourmet
+                                      ? Icons.restaurant
+                                      : Icons.landscape,
+                                  size: 11,
+                                  color: cardColor,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  spot.pinType.label,
+                                  style: GoogleFonts.notoSansJp(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: cardColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${spot.likeCount} いいね',
+                            style: GoogleFonts.notoSansJp(
+                              fontSize: 12,
+                              color: AppColors.textHint,
+                            ),
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: cardColor,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: cardColor.withValues(alpha: 0.35),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.map_outlined, size: 13, color: Colors.white),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'マップで見る',
+                                  style: GoogleFonts.notoSansJp(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

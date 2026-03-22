@@ -316,7 +316,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             onMapCreated: (controller) {
               _mapController = controller;
             },
-            mapType: MapType.hybrid,
+            mapType: MapType.normal,
             markers: _markers,
             onTap: _onMapTap,
             myLocationEnabled: false,
