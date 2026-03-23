@@ -1,8 +1,19 @@
+// ────────────────────────────────────────────────────────────────────────────
+// PaywallScreen – サブスクリプション購入画面
+//
+// iOS (StoreKit) / Android (Google Play Billing) 両対応。
+// 共通 UI ウィジェットを使用し、プラットフォーム別の表示を切り替えます。
+// ────────────────────────────────────────────────────────────────────────────
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 import '../services/subscription_service.dart';
 import '../main_shell.dart';
+import '../widgets/subscription/plan_card.dart';
+import '../widgets/subscription/subscribe_button.dart';
+import '../widgets/subscription/feature_list.dart';
+import '../widgets/subscription/disclaimer_section.dart';
+import '../widgets/subscription/legal_links_row.dart';
 
 class PaywallScreen extends StatefulWidget {
   const PaywallScreen({super.key});
@@ -12,26 +23,108 @@ class PaywallScreen extends StatefulWidget {
 }
 
 class _PaywallScreenState extends State<PaywallScreen> {
+  // ── OS 判定 ────────────────────────────────────────────────────────────
+  bool get _isIOS =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+  bool get _isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  // ── URL 定数 ───────────────────────────────────────────────────────────
+  static const String _appleEulaUrl =
+      'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+  static const String _privacyPolicyUrl =
+      'https://tim8228info-art.github.io/shotmap-support/';
+  static const String _termsOfServiceUrl =
+      'https://tim8228info-art.github.io/shotmap-support/';
+
+  // ────────────────────────────────────────────────────────────────────────
+  // ██ プラットフォーム別スタブ関数 ██
+  // ────────────────────────────────────────────────────────────────────────
+
+  /// 【スタブ】iOS: App Store からプランを購入する
+  /// → SubscriptionService.purchaseSubscription_iOS() に委譲
+  Future<void> handleApplePurchase(String productID) async {
+    // TODO(iOS): 必要であれば購入前の UI 処理をここに追記
+    final sub = context.read<SubscriptionService>();
+    await sub.purchaseSubscription_iOS(productID);
+  }
+
+  /// 【スタブ】Android: Google Play からプランを購入する
+  /// → SubscriptionService.purchaseSubscription_Android() に委譲
+  Future<void> handleGooglePurchase(String productID) async {
+    // TODO(Android): 必要であれば購入前の UI 処理をここに追記
+    final sub = context.read<SubscriptionService>();
+    await sub.purchaseSubscription_Android(productID);
+  }
+
+  /// 【スタブ】iOS: 購入を復元する（Apple 審査必須）
+  Future<void> restorePurchase() async {
+    // TODO(iOS): 復元後の追加処理があればここに記述
+    final sub = context.read<SubscriptionService>();
+    await sub.restorePurchases();
+    if (!mounted) return;
+    if (sub.isSubscribed) {
+      _navigateToMain();
+    } else {
+      _showSnackBar('復元できる購入が見つかりませんでした。');
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // ナビゲーション & UI ヘルパー
+  // ────────────────────────────────────────────────────────────────────────
+
+  void _navigateToMain() {
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (_, __, ___) => const MainShell(),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+        transitionDuration: const Duration(milliseconds: 500),
+      ),
+    );
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+
+  Future<void> _onPurchaseTap() async {
+    final productId = SubscriptionService.kProductId;
+    if (_isIOS) {
+      await handleApplePurchase(productId);
+    } else if (_isAndroid) {
+      await handleGooglePurchase(productId);
+    } else {
+      // Web / デスクトップ: 購入不可
+      _showSnackBar('このプラットフォームでは購入できません。');
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // 購読完了の検知 → メイン画面へ自動遷移
+  // ────────────────────────────────────────────────────────────────────────
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // サブスク購入完了を監視してメイン画面へ遷移
     final sub = context.watch<SubscriptionService>();
     if (sub.isSubscribed) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            PageRouteBuilder(
-              pageBuilder: (_, __, ___) => const MainShell(),
-              transitionsBuilder: (_, anim, __, child) =>
-                  FadeTransition(opacity: anim, child: child),
-              transitionDuration: const Duration(milliseconds: 600),
-            ),
-          );
-        }
+        if (mounted) _navigateToMain();
       });
     }
   }
+
+  // ────────────────────────────────────────────────────────────────────────
+  // build
+  // ────────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -41,263 +134,67 @@ class _PaywallScreenState extends State<PaywallScreen> {
           backgroundColor: const Color(0xFF0D1B2A),
           body: SafeArea(
             child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28.0),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 40),
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 36),
 
-                    // アイコン
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blue.withValues(alpha: 0.3),
-                            blurRadius: 20,
-                            spreadRadius: 4,
-                          ),
-                        ],
-                      ),
-                      child: const Center(
-                        child: Text('📍', style: TextStyle(fontSize: 52)),
-                      ),
-                    ),
+                  // ── ヘッダー（アイコン・タイトル）
+                  _buildHeader(),
 
-                    const SizedBox(height: 24),
+                  const SizedBox(height: 28),
 
-                    // タイトル
-                    const Text(
-                      'Shot Map',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
+                  // ── 機能紹介リスト（共通ウィジェット）
+                  const FeatureList(),
 
-                    const SizedBox(height: 8),
+                  const SizedBox(height: 24),
 
-                    const Text(
-                      '写真スポット・グルメスポット共有マップ',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 15,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+                  // ── 月額プランカード（共通ウィジェット）
+                  PlanCard(storePrice: sub.product?.price),
 
-                    const SizedBox(height: 40),
+                  const SizedBox(height: 24),
 
-                    // 機能一覧
-                    _FeatureRow(
-                      icon: Icons.map_outlined,
-                      title: '無制限スポット登録',
-                      subtitle: 'お気に入りの場所をいくつでも保存',
-                    ),
-                    _FeatureRow(
-                      icon: Icons.photo_camera_outlined,
-                      title: '写真付きで共有',
-                      subtitle: '風景・グルメ写真をマップに投稿',
-                    ),
-                    _FeatureRow(
-                      icon: Icons.explore_outlined,
-                      title: 'トレンドスポット発見',
-                      subtitle: '世界中のユーザーの投稿をチェック',
-                    ),
-                    _FeatureRow(
-                      icon: Icons.share_outlined,
-                      title: 'SNS共有',
-                      subtitle: 'Instagram・Xで友達にシェア',
-                    ),
+                  // ── エラーメッセージ
+                  if (sub.errorMessage != null)
+                    _buildErrorBanner(sub.errorMessage!),
 
-                    const SizedBox(height: 40),
+                  // ── 購入ボタン（共通ウィジェット）
+                  SubscribeButton(
+                    label: _isIOS
+                        ? '月額500円でShotMapを始める'
+                        : _isAndroid
+                            ? 'Google Playで月額500円を購入'
+                            : '月額500円でShotMapを始める',
+                    onPressed: _onPurchaseTap,
+                    isLoading: sub.isLoading,
+                  ),
 
-                    // 価格ボックス
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF1565C0), Color(0xFF0D47A1)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blue.withValues(alpha: 0.4),
-                            blurRadius: 16,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          const Text(
-                            '月額',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            sub.product?.price ?? '¥500',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 48,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Text(
-                            '（税込）',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            'いつでもキャンセル可能',
-                            style: TextStyle(
-                              color: Colors.white60,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 28),
-
-                    // エラーメッセージ
-                    if (sub.errorMessage != null)
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        margin: const EdgeInsets.only(bottom: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
-                        ),
-                        child: Text(
-                          sub.errorMessage!,
-                          style: const TextStyle(color: Colors.redAccent, fontSize: 13),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-
-                    // 購入ボタン
-                    SizedBox(
-                      width: double.infinity,
-                      height: 58,
-                      child: ElevatedButton(
-                        onPressed: sub.isLoading
-                            ? null
-                            : () async {
-                                await sub.subscribe();
-                              },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF1565C0),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: sub.isLoading
-                            ? const CupertinoActivityIndicator()
-                            : const Text(
-                                'サブスクリプションを開始する',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // 復元ボタン
-                    TextButton(
-                      onPressed: sub.isLoading
-                          ? null
-                          : () async {
-                              await sub.restore();
-                              if (sub.isSubscribed && context.mounted) {
-                                Navigator.of(context).pop();
-                              }
-                            },
-                      child: const Text(
-                        '購入を復元する',
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 15,
-                          decoration: TextDecoration.underline,
-                          decorationColor: Colors.white54,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // 利用規約・プライバシーポリシー
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        TextButton(
-                          onPressed: () {
-                            _showTerms(context);
-                          },
-                          child: const Text(
-                            '利用規約',
-                            style: TextStyle(
-                              color: Colors.white38,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        const Text(
-                          '・',
-                          style: TextStyle(color: Colors.white38, fontSize: 12),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            _showPrivacy(context);
-                          },
-                          child: const Text(
-                            'プライバシーポリシー',
-                            style: TextStyle(
-                              color: Colors.white38,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    // 注記
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 24),
-                      child: Text(
-                        '・お支払いはApple IDに請求されます\n'
-                        '・サブスクリプションは期間終了の24時間前までにキャンセルしない限り自動更新されます\n'
-                        '・購入後はアカウント設定からキャンセルできます',
-                        style: TextStyle(
-                          color: Colors.white30,
-                          fontSize: 11,
-                          height: 1.7,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
+                  // ── iOS のみ: 購入を復元するボタン（Apple 審査必須）
+                  if (_isIOS) ...[
+                    const SizedBox(height: 10),
+                    _buildRestoreButton(sub),
                   ],
-                ),
+
+                  const SizedBox(height: 20),
+
+                  // ── OS 別注意書き（共通ウィジェット）
+                  if (_isIOS)
+                    const AppleDisclaimerSection()
+                  else
+                    const AndroidDisclaimerSection(),
+
+                  const SizedBox(height: 14),
+
+                  // ── 利用規約・プライバシーポリシーリンク（共通ウィジェット）
+                  LegalLinksRow(
+                    appleEulaUrl: _isIOS ? _appleEulaUrl : null,
+                    privacyPolicyUrl: _privacyPolicyUrl,
+                    termsOfServiceUrl: _termsOfServiceUrl,
+                  ),
+
+                  const SizedBox(height: 36),
+                ],
               ),
             ),
           ),
@@ -306,110 +203,82 @@ class _PaywallScreenState extends State<PaywallScreen> {
     );
   }
 
-  // ignore: unused_element
-  void _showTerms(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('利用規約'),
-        content: const SingleChildScrollView(
-          child: Text(
-            'Shot Mapのご利用には月額サブスクリプションが必要です。\n\n'
-            '・料金：月額500円（税込）\n'
-            '・お支払い：Apple IDに請求\n'
-            '・自動更新：期間終了24時間前までにキャンセルしない限り自動更新\n'
-            '・キャンセル：iOSの設定 > Apple ID > サブスクリプションから可能\n\n'
-            '本サービスはAppleのApp Storeを通じて提供されます。',
+  // ────────────────────────────────────────────────────────────────────────
+  // ローカルウィジェット（PaywallScreen 固有）
+  // ────────────────────────────────────────────────────────────────────────
+
+  Widget _buildHeader() {
+    return Column(
+      children: [
+        // アプリアイコン風コンテナ
+        Container(
+          width: 88,
+          height: 88,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.blue.withValues(alpha: 0.35),
+                blurRadius: 20,
+                spreadRadius: 4,
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Text('📍', style: TextStyle(fontSize: 50)),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('閉じる'),
+        const SizedBox(height: 16),
+        const Text(
+          'Shot Map',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 30,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
           ),
-        ],
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          '写真スポット・グルメスポット共有マップ',
+          style: TextStyle(color: Colors.white60, fontSize: 14),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildErrorBanner(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        message,
+        style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+        textAlign: TextAlign.center,
       ),
     );
   }
 
-  void _showPrivacy(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('プライバシーポリシー'),
-        content: const SingleChildScrollView(
-          child: Text(
-            '本アプリは以下の情報を収集・利用します。\n\n'
-            '・位置情報：スポット登録・マップ表示のため\n'
-            '・写真：スポット投稿のため\n'
-            '・ユーザー情報：アカウント管理のため\n\n'
-            '収集した情報は第三者に提供しません。\n\n'
-            '詳細：https://tim8228info-art.github.io/shotmap-support/',
-          ),
+  Widget _buildRestoreButton(SubscriptionService sub) {
+    return TextButton(
+      onPressed: sub.isLoading ? null : restorePurchase,
+      child: const Text(
+        '購入を復元する',
+        style: TextStyle(
+          color: Colors.white54,
+          fontSize: 14,
+          decoration: TextDecoration.underline,
+          decorationColor: Colors.white54,
+          decorationThickness: 1,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('閉じる'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FeatureRow extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  const _FeatureRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: Colors.white60,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.check_circle, color: Color(0xFF4CAF50), size: 20),
-        ],
       ),
     );
   }
