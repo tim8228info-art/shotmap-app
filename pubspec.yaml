@@ -51,6 +51,9 @@ dependencies:
   firebase_core: 3.6.0
   firebase_app_installations: ^0.3.0+4
 
+  # アプリ内課金（サブスクリプション）
+  in_app_purchase: ^3.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

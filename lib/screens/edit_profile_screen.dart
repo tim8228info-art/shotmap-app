@@ -918,7 +918,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           Switch(
             value: _hideFollowing,
             onChanged: (v) => setState(() => _hideFollowing = v),
-            activeThumbColor: AppColors.primary,
+            activeColor: AppColors.primary,
             activeTrackColor: AppColors.primaryLight,
           ),
         ],

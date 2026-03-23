@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../main_shell.dart';
+import '../services/subscription_service.dart';
+import 'paywall_screen.dart';
 import 'terms_screen.dart';
 import 'privacy_screen.dart';
 
@@ -47,15 +50,32 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  void _onLogin(BuildContext context) {
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const MainShell(),
-        transitionsBuilder: (_, anim, __, child) =>
-            FadeTransition(opacity: anim, child: child),
-        transitionDuration: const Duration(milliseconds: 600),
-      ),
-    );
+  void _onLogin(BuildContext context) async {
+    final sub = context.read<SubscriptionService>();
+
+    // サブスクリプション状態を確認（少し待つ）
+    if (sub.isLoading) {
+      await Future.delayed(const Duration(milliseconds: 800));
+    }
+
+    if (!context.mounted) return;
+
+    if (sub.isSubscribed) {
+      // サブスク済み → メイン画面へ
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (_, __, ___) => const MainShell(),
+          transitionsBuilder: (_, anim, __, child) =>
+              FadeTransition(opacity: anim, child: child),
+          transitionDuration: const Duration(milliseconds: 600),
+        ),
+      );
+    } else {
+      // 未購入 → ペイウォール画面へ
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const PaywallScreen()),
+      );
+    }
   }
 
   @override
