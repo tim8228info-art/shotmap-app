@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class LegalLinksRow extends StatelessWidget {
-  /// Apple EULA URL（iOS 固有。null の場合は汎用 URL を使用）
+  /// Apple EULA URL（iOS 固有。null の場合はリンクを非表示）
   final String? appleEulaUrl;
 
   /// プライバシーポリシー URL
@@ -33,58 +33,68 @@ class LegalLinksRow extends StatelessWidget {
     return Wrap(
       alignment: WrapAlignment.center,
       crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 0,
+      runSpacing: 4,
       children: [
-        // 利用規約
-        TextButton(
-          onPressed: () => _open(
-            appleEulaUrl ??
-                'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/',
+        // ── Apple EULA（iOS のみ） ─────────────────────────────────────────
+        if (appleEulaUrl != null) ...[
+          _LegalLink(
+            label: '利用規約 (EULA)',
+            onTap: () => _open(appleEulaUrl!),
           ),
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: const Text(
-            '利用規約 (EULA)',
-            style: TextStyle(color: Colors.white30, fontSize: 12),
-          ),
+          _Separator(),
+        ],
+
+        // ── プライバシーポリシー ─────────────────────────────────────────────
+        _LegalLink(
+          label: 'プライバシーポリシー',
+          onTap: () => _open(privacyPolicyUrl),
         ),
-        const Text(
-          '・',
-          style: TextStyle(color: Colors.white30, fontSize: 12),
-        ),
-        // プライバシーポリシー
-        TextButton(
-          onPressed: () => _open(privacyPolicyUrl),
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: const Text(
-            'プライバシーポリシー',
-            style: TextStyle(color: Colors.white30, fontSize: 12),
-          ),
-        ),
-        const Text(
-          '・',
-          style: TextStyle(color: Colors.white30, fontSize: 12),
-        ),
-        // 別途利用規約（Shot Map 独自）
-        TextButton(
-          onPressed: () => _open(termsOfServiceUrl),
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: const Text(
-            'Shot Map 利用規約',
-            style: TextStyle(color: Colors.white30, fontSize: 12),
-          ),
+        _Separator(),
+
+        // ── Shot Map 独自利用規約 ────────────────────────────────────────────
+        _LegalLink(
+          label: 'Shot Map 利用規約',
+          onTap: () => _open(termsOfServiceUrl),
         ),
       ],
+    );
+  }
+}
+
+class _LegalLink extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _LegalLink({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF607D8B),
+            fontSize: 11,
+            decoration: TextDecoration.underline,
+            decorationColor: Color(0xFF607D8B),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Separator extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return const Text(
+      '·',
+      style: TextStyle(color: Color(0xFF37474F), fontSize: 12),
     );
   }
 }

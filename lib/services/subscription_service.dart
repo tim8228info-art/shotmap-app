@@ -1,17 +1,17 @@
 // ────────────────────────────────────────────────────────────────────────────
-// SubscriptionService
+// SubscriptionService  v2.0
 //
-// iOS (StoreKit) と Android (Google Play Billing) 両対応の
-// サブスクリプション管理サービス。
+// iOS (StoreKit 経由 in_app_purchase) と
+// Android (Google Play Billing 経由 in_app_purchase) 両対応。
 //
-// ■ スタブ関数（後で実装）:
-//   - purchaseMonthlyPlan()        → 月額プランを購入（iOS / Android 共通エントリ）
-//   - purchaseSubscription_iOS()   → iOS StoreKit 購入処理（Xcodeで実装）
-//   - purchaseSubscription_Android() → Android Google Play 購入処理
-//   - restorePurchases()           → iOS: 購入を復元（Apple 規定）
-//   - openAndroidSubscriptionManagement() → Android: 定期購入管理画面を開く
-//   - initStoreKit()               → iOS StoreKit を初期化
-//   - initGoogleBilling()          → Android Google Billing を初期化
+// ■ 購入フロー
+//   1. purchaseMonthlyPlan()      … UI から呼ぶ唯一のエントリポイント
+//   2. restorePurchases()         … iOS 必須の「購入を復元」ボタン用
+//   3. openAndroidSubscriptionManagement() … Android の解約案内
+//
+// ■ 状態管理
+//   isSubscribed / isLoading / errorMessage を ChangeNotifier で通知
+//   購読状態は SharedPreferences に永続化
 // ────────────────────────────────────────────────────────────────────────────
 import 'dart:async';
 import 'package:flutter/foundation.dart';
@@ -24,27 +24,26 @@ import 'package:url_launcher/url_launcher.dart';
 
 class SubscriptionService extends ChangeNotifier {
   // ── 定数 ────────────────────────────────────────────────────────────────
-  /// App Store Connect / Google Play Console に登録した製品 ID
-  static const String kProductId = 'com.shotmap.pins.monthly';
-  static const String _prefKey = 'is_subscribed';
+  static const String kProductId  = 'com.shotmap.pins.monthly';
   static const String _kPackageId = 'com.shotmap.pins';
+  static const String _prefKey    = 'is_subscribed';
 
   // ── 内部状態 ─────────────────────────────────────────────────────────────
   final InAppPurchase _iap = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _purchaseStream;
 
-  bool _isSubscribed = false;
-  bool _isLoading = true;
-  bool _isAvailable = false;
+  bool           _isSubscribed  = false;
+  bool           _isLoading     = true;
+  bool           _isAvailable   = false;
   ProductDetails? _product;
-  String? _errorMessage;
+  String?        _errorMessage;
 
   // ── パブリックゲッター ────────────────────────────────────────────────────
-  bool get isSubscribed => _isSubscribed;
-  bool get isLoading => _isLoading;
-  bool get isAvailable => _isAvailable;
-  ProductDetails? get product => _product;
-  String? get errorMessage => _errorMessage;
+  bool            get isSubscribed  => _isSubscribed;
+  bool            get isLoading     => _isLoading;
+  bool            get isAvailable   => _isAvailable;
+  ProductDetails? get product       => _product;
+  String?         get errorMessage  => _errorMessage;
 
   // ────────────────────────────────────────────────────────────────────────
   // コンストラクタ
@@ -57,28 +56,34 @@ class SubscriptionService extends ChangeNotifier {
   // 初期化
   // ────────────────────────────────────────────────────────────────────────
   Future<void> _init() async {
-    // ローカルに保存された購読状態を復元
+    // ① ローカルに保存された購読状態を先に読み込む（画面のちらつきを防ぐ）
     final prefs = await SharedPreferences.getInstance();
     _isSubscribed = prefs.getBool(_prefKey) ?? false;
     notifyListeners();
 
-    // Web は課金非対応
+    // ② Web は課金非対応
     if (kIsWeb) {
       _isLoading = false;
       notifyListeners();
       return;
     }
 
-    // プラットフォーム別の初期化
+    // ③ iOS: StoreKit デリゲートを設定
     if (defaultTargetPlatform == TargetPlatform.iOS) {
-      await initStoreKit();
-    } else if (defaultTargetPlatform == TargetPlatform.android) {
-      await initGoogleBilling();
+      try {
+        final addition =
+            _iap.getPlatformAddition<InAppPurchaseStoreKitPlatformAddition>();
+        await addition.setDelegate(_ShotMapPaymentQueueDelegate());
+      } catch (e) {
+        _debugLog('initStoreKit error: $e');
+      }
     }
 
-    // 共通: 製品情報を取得してサイレント復元
+    // ④ 共通: ストアの利用可否を確認
     _isAvailable = await _iap.isAvailable();
+
     if (_isAvailable) {
+      // ⑤ 購入イベントストリームを購読
       _purchaseStream = _iap.purchaseStream.listen(
         _onPurchaseUpdate,
         onDone: () => _purchaseStream?.cancel(),
@@ -87,8 +92,14 @@ class SubscriptionService extends ChangeNotifier {
           notifyListeners();
         },
       );
+
+      // ⑥ 製品情報をロード
       await _loadProducts();
+
+      // ⑦ サイレント復元（起動時に自動で購買状態を同期）
       await _silentRestore();
+    } else {
+      _debugLog('Store is not available');
     }
 
     _isLoading = false;
@@ -96,49 +107,37 @@ class SubscriptionService extends ChangeNotifier {
   }
 
   // ────────────────────────────────────────────────────────────────────────
-  // ██ スタブ関数群 ██
+  // ██ パブリック API ██
   // ────────────────────────────────────────────────────────────────────────
 
-  /// 【スタブ】iOS: StoreKit を初期化する
-  /// → Xcode ビルド時に実際の初期化処理を記述してください
-  Future<void> initStoreKit() async {
-    // TODO(iOS): StoreKit の初期化処理
-    // 例: SKPaymentQueueDelegate の設定など
-    try {
-      final iosPlatformAddition =
-          _iap.getPlatformAddition<InAppPurchaseStoreKitPlatformAddition>();
-      await iosPlatformAddition
-          .setDelegate(_ShotMapPaymentQueueDelegate());
-    } catch (e) {
-      if (kDebugMode) debugPrint('[SubscriptionService] initStoreKit error: $e');
-    }
-  }
-
-  /// 【スタブ】Android: Google Play Billing を初期化する
-  /// → Android ビルド時に実際の初期化処理を記述してください
-  Future<void> initGoogleBilling() async {
-    // TODO(Android): Google Play Billing の初期化処理
-    // 例: BillingClient の設定、接続確認など
-    if (kDebugMode) {
-      debugPrint('[SubscriptionService] initGoogleBilling called');
-    }
-  }
-
-  /// 【スタブ】月額プランを購入する（iOS / Android 共通エントリポイント）
+  /// 月額プランを購入する（iOS / Android 共通エントリポイント）
   ///
-  /// 実装時はこのメソッドを呼び出すだけで OK。
-  /// 内部でプラットフォームを判定して適切なメソッドに振り分けます。
+  /// UI の「購入」ボタンからこのメソッドだけを呼ぶ。
   Future<void> purchaseMonthlyPlan() async {
     _clearError();
     _setLoading(true);
 
+    if (_product == null) {
+      _errorMessage = '商品情報を読み込めませんでした。しばらく待ってから再試行してください。';
+      _setLoading(false);
+      return;
+    }
+
     try {
       if (defaultTargetPlatform == TargetPlatform.iOS) {
-        await purchaseSubscription_iOS(kProductId);
+        // ── iOS: StoreKit (in_app_purchase) ────────────────────────────
+        final param = PurchaseParam(productDetails: _product!);
+        await _iap.buyNonConsumable(purchaseParam: param);
+        // 結果は _onPurchaseUpdate() で処理
       } else if (defaultTargetPlatform == TargetPlatform.android) {
-        await purchaseSubscription_Android(kProductId);
+        // ── Android: Google Play Billing (in_app_purchase_android) ─────
+        final param = GooglePlayPurchaseParam(
+          productDetails: _product!,
+          changeSubscriptionParam: null,
+        );
+        await _iap.buyNonConsumable(purchaseParam: param);
+        // 結果は _onPurchaseUpdate() で処理
       } else {
-        // Web / デスクトップ: 非対応
         _errorMessage = 'このプラットフォームでは購入できません。';
         _setLoading(false);
       }
@@ -148,69 +147,26 @@ class SubscriptionService extends ChangeNotifier {
     }
   }
 
-  /// 【スタブ】iOS 向け StoreKit 購入処理
-  /// → Xcode でこのメソッドに実際の StoreKit 処理を実装してください
-  // ignore: non_constant_identifier_names
-  Future<void> purchaseSubscription_iOS(String productID) async {
-    // TODO(iOS): StoreKit を使用した購入処理を実装
-    // 例:
-    //   final purchaseParam = PurchaseParam(productDetails: _product!);
-    //   await _iap.buyNonConsumable(purchaseParam: purchaseParam);
-    if (_product == null) {
-      _errorMessage = '商品情報を読み込めませんでした。';
-      _setLoading(false);
-      return;
-    }
-    final purchaseParam = PurchaseParam(productDetails: _product!);
-    await _iap.buyNonConsumable(purchaseParam: purchaseParam);
-  }
-
-  /// 【スタブ】Android 向け Google Play Billing 購入処理
-  /// → Android ビルド時にこのメソッドに実際の Billing 処理を実装してください
-  // ignore: non_constant_identifier_names
-  Future<void> purchaseSubscription_Android(String productID) async {
-    // TODO(Android): Google Play Billing を使用した購入処理を実装
-    // 例:
-    //   final purchaseParam = GooglePlayPurchaseParam(
-    //     productDetails: _product!,
-    //     changeSubscriptionParam: null,
-    //   );
-    //   await _iap.buyNonConsumable(purchaseParam: purchaseParam);
-    if (_product == null) {
-      _errorMessage = '商品情報を読み込めませんでした。';
-      _setLoading(false);
-      return;
-    }
-    final purchaseParam = GooglePlayPurchaseParam(
-      productDetails: _product!,
-      changeSubscriptionParam: null,
-    );
-    await _iap.buyNonConsumable(purchaseParam: purchaseParam);
-  }
-
-  /// 【スタブ】iOS: 購入を復元する（Apple 審査必須）
+  /// 購入を復元する（iOS 審査必須）
   ///
-  /// iOS アプリには Restore Purchase ボタンが必須です。
-  /// このメソッドを UI の「購入を復元する」ボタンに紐付けてください。
+  /// iOS の「購入を復元する」ボタンに紐付ける。
+  /// Android では使用しない（Google Play が自動で同期する）。
   Future<void> restorePurchases() async {
-    // TODO(iOS): 必要に応じて追加のリストア処理を実装
     _clearError();
     _setLoading(true);
     try {
       await _iap.restorePurchases();
-      // 結果は _onPurchaseUpdate で処理される
+      // 結果は _onPurchaseUpdate() で処理
     } catch (e) {
       _errorMessage = '購入の復元に失敗しました。\n$e';
       _setLoading(false);
     }
   }
 
-  /// 【スタブ】Android: Google Play の定期購入管理画面を開く
+  /// Android: Google Play の定期購入管理画面を開く
   ///
-  /// Google Play ポリシーに従い、ユーザーが簡単に解約できる
-  /// Google Play の管理画面へ誘導してください。
+  /// Google Play ポリシー準拠 – キャンセル導線として提供。
   Future<void> openAndroidSubscriptionManagement() async {
-    // TODO(Android): 必要に応じてカスタムの管理画面 URL を設定
     final uri = Uri.parse(
       'https://play.google.com/store/account/subscriptions'
       '?sku=$kProductId&package=$_kPackageId',
@@ -221,19 +177,22 @@ class SubscriptionService extends ChangeNotifier {
   }
 
   // ────────────────────────────────────────────────────────────────────────
-  // 内部ヘルパー（変更不要）
+  // 内部ヘルパー
   // ────────────────────────────────────────────────────────────────────────
 
   Future<void> _loadProducts() async {
     try {
       final response = await _iap.queryProductDetails({kProductId});
       if (response.error != null) {
-        _errorMessage = response.error!.message;
+        _errorMessage = '商品情報の取得に失敗しました: ${response.error!.message}';
       } else if (response.productDetails.isNotEmpty) {
         _product = response.productDetails.first;
+        _debugLog('Product loaded: ${_product!.price}');
+      } else {
+        _debugLog('No product found for $kProductId');
       }
     } catch (e) {
-      if (kDebugMode) debugPrint('[SubscriptionService] _loadProducts: $e');
+      _debugLog('_loadProducts error: $e');
     }
     notifyListeners();
   }
@@ -246,7 +205,8 @@ class SubscriptionService extends ChangeNotifier {
     }
   }
 
-  void _onPurchaseUpdate(List<PurchaseDetails> list) async {
+  /// 購入イベントハンドラ（ストリームから呼ばれる）
+  Future<void> _onPurchaseUpdate(List<PurchaseDetails> list) async {
     for (final purchase in list) {
       if (purchase.productID != kProductId) continue;
 
@@ -254,18 +214,28 @@ class SubscriptionService extends ChangeNotifier {
         case PurchaseStatus.purchased:
         case PurchaseStatus.restored:
           await _setSubscribed(true);
+          _debugLog('Subscription active (${purchase.status})');
           break;
+
         case PurchaseStatus.error:
-          _errorMessage = purchase.error?.message ?? '購入に失敗しました。';
+          final msg = purchase.error?.message ?? '不明なエラー';
+          _errorMessage = '購入に失敗しました: $msg';
           _setLoading(false);
+          _debugLog('Purchase error: $msg');
           break;
+
         case PurchaseStatus.canceled:
           _setLoading(false);
+          _debugLog('Purchase canceled');
           break;
+
         case PurchaseStatus.pending:
+          // ペンディング中は何もしない（ローディング表示を維持）
+          _debugLog('Purchase pending');
           break;
       }
 
+      // 購入確認を完了させる（必須）
       if (purchase.pendingCompletePurchase) {
         await _iap.completePurchase(purchase);
       }
@@ -288,17 +258,29 @@ class SubscriptionService extends ChangeNotifier {
     _errorMessage = null;
   }
 
-  // ── deprecated 互換エイリアス（既存コードを壊さないため） ────────────────
-  /// [purchaseMonthlyPlan] を使用してください
+  void _debugLog(String msg) {
+    if (kDebugMode) debugPrint('[SubscriptionService] $msg');
+  }
+
+  // ── deprecated 互換エイリアス（既存コードへの後方互換） ──────────────────
   @Deprecated('Use purchaseMonthlyPlan() instead')
   Future<bool> subscribe() async {
     await purchaseMonthlyPlan();
     return _isSubscribed;
   }
 
-  /// [restorePurchases] を使用してください
   @Deprecated('Use restorePurchases() instead')
   Future<void> restore() async => restorePurchases();
+
+  // iOS StoreKit 向けのスタブ（後方互換 – 内部で purchaseMonthlyPlan を委譲）
+  // ignore: non_constant_identifier_names
+  Future<void> purchaseSubscription_iOS(String productID) async =>
+      purchaseMonthlyPlan();
+
+  // Android 向けのスタブ（後方互換 – 内部で purchaseMonthlyPlan を委譲）
+  // ignore: non_constant_identifier_names
+  Future<void> purchaseSubscription_Android(String productID) async =>
+      purchaseMonthlyPlan();
 
   // ────────────────────────────────────────────────────────────────────────
   // Dispose
@@ -307,9 +289,9 @@ class SubscriptionService extends ChangeNotifier {
   void dispose() {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
       try {
-        final iosPlatformAddition =
+        final addition =
             _iap.getPlatformAddition<InAppPurchaseStoreKitPlatformAddition>();
-        iosPlatformAddition.setDelegate(null);
+        addition.setDelegate(null);
       } catch (_) {}
     }
     _purchaseStream?.cancel();
@@ -318,7 +300,8 @@ class SubscriptionService extends ChangeNotifier {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// iOS StoreKit デリゲート（プロモーションオファー対応）
+// iOS StoreKit デリゲート
+// プロモーションオファーを許可し、価格変更の同意ダイアログを非表示にする
 // ────────────────────────────────────────────────────────────────────────────
 class _ShotMapPaymentQueueDelegate implements SKPaymentQueueDelegateWrapper {
   @override

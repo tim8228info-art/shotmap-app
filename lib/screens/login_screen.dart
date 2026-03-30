@@ -1,6 +1,10 @@
+import 'dart:convert';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../theme/app_theme.dart';
 import '../main_shell.dart';
 import '../services/subscription_service.dart';
@@ -21,6 +25,7 @@ class _LoginScreenState extends State<LoginScreen>
   late AnimationController _slideController;
   late Animation<double> _fadeAnim;
   late Animation<Offset> _slideAnim;
+  bool _isAppleSignInLoading = false;
 
   @override
   void initState() {
@@ -50,18 +55,86 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  void _onLogin(BuildContext context) async {
-    final sub = context.read<SubscriptionService>();
+  /// ランダムなnonce文字列を生成（Sign in with Apple セキュリティ用）
+  String _generateNonce([int length = 32]) {
+    const charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(length, (_) => charset[random.nextInt(charset.length)])
+        .join();
+  }
 
-    // サブスクリプション状態を確認（少し待つ）
+  /// SHA256ハッシュ
+  String _sha256ofString(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
+  /// Sign in with Apple 処理
+  Future<void> _signInWithApple(BuildContext context) async {
+    setState(() => _isAppleSignInLoading = true);
+    try {
+      final rawNonce = _generateNonce();
+      final nonce = _sha256ofString(rawNonce);
+
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          // 名前・メールアドレスのみ収集（ガイドライン4.8準拠）
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: nonce,
+      );
+
+      if (!context.mounted) return;
+
+      // Apple提供の情報（プライベートメールも自動対応）
+      final email = credential.email; // nullの場合はプライベートリレーメール
+      final givenName = credential.givenName ?? '';
+      final familyName = credential.familyName ?? '';
+      final fullName = '$familyName$givenName'.trim();
+      final displayName = fullName.isNotEmpty ? fullName : 'Appleユーザー';
+
+      if (kDebugMode) {
+        debugPrint('Apple Sign In 成功: $displayName / $email');
+      }
+
+      // ログイン後の画面遷移
+      await _navigateAfterLogin(context);
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (!context.mounted) return;
+      if (e.code == AuthorizationErrorCode.canceled) {
+        // ユーザーがキャンセル → 何もしない
+        return;
+      }
+      _showError(context, 'Sign in with Apple に失敗しました。もう一度お試しください。');
+    } catch (e) {
+      if (!context.mounted) return;
+      _showError(context, 'ログインに失敗しました。もう一度お試しください。');
+    } finally {
+      if (mounted) setState(() => _isAppleSignInLoading = false);
+    }
+  }
+
+  void _showError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+      backgroundColor: Colors.red,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ));
+  }
+
+  /// ログイン後の画面遷移（サブスク確認）
+  Future<void> _navigateAfterLogin(BuildContext context) async {
+    final sub = context.read<SubscriptionService>();
     if (sub.isLoading) {
       await Future.delayed(const Duration(milliseconds: 800));
     }
-
     if (!context.mounted) return;
 
     if (sub.isSubscribed) {
-      // サブスク済み → メイン画面へ
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           pageBuilder: (_, __, ___) => const MainShell(),
@@ -71,11 +144,14 @@ class _LoginScreenState extends State<LoginScreen>
         ),
       );
     } else {
-      // 未購入 → ペイウォール画面へ
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const PaywallScreen()),
       );
     }
+  }
+
+  void _onLogin(BuildContext context) async {
+    await _navigateAfterLogin(context);
   }
 
   @override
@@ -84,12 +160,10 @@ class _LoginScreenState extends State<LoginScreen>
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // ① 背景（写真読み込み前のフォールバック）
-          Container(
-            color: const Color(0xFF3D8FBF),
-          ),
+          // 背景色
+          Container(color: const Color(0xFF3D8FBF)),
 
-          // ② 富士山の背景写真
+          // 富士山背景写真
           Positioned.fill(
             child: Image.asset(
               'assets/images/fuji_bg.png',
@@ -98,36 +172,29 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
 
-          // 全体に薄い暗オーバーレイ（テキスト可読性向上）
+          // 暗オーバーレイ
           Positioned.fill(
             child: Container(
               color: Colors.black.withValues(alpha: 0.25),
             ),
           ),
 
-          // ③ 下部グラデーションオーバーレイ（カードとイラストを自然に馴染ませる）
+          // 下部グラデーション
           Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 420,
+            bottom: 0, left: 0, right: 0, height: 460,
             child: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Color(0xAA000000),
-                    Color(0xDD000000),
-                  ],
+                  colors: [Colors.transparent, Color(0xAA000000), Color(0xDD000000)],
                   stops: [0.0, 0.5, 1.0],
                 ),
               ),
             ),
           ),
 
-          // ④ メインコンテンツ（ロゴ・テキスト・ログインカード）
+          // メインコンテンツ
           SafeArea(
             child: FadeTransition(
               opacity: _fadeAnim,
@@ -138,16 +205,11 @@ class _LoginScreenState extends State<LoginScreen>
                   child: Column(
                     children: [
                       const SizedBox(height: 50),
-
-                      // ロゴ
                       _buildLogo(),
-
                       const SizedBox(height: 14),
-
-                      // アプリ名
                       Text(
                         'Shotmap',
-                        style: GoogleFonts.poppins(
+                        style: TextStyle(
                           fontSize: 38,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
@@ -161,46 +223,29 @@ class _LoginScreenState extends State<LoginScreen>
                           ],
                         ),
                       ),
-
                       const SizedBox(height: 6),
-
-                      // キャッチコピー
                       Text(
                         'あなたの「お気に入り」が',
-                        style: GoogleFonts.notoSansJp(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w400,
                           color: Colors.white.withValues(alpha: 0.92),
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withValues(alpha: 0.15),
-                              blurRadius: 6,
-                            ),
-                          ],
+                          shadows: [Shadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 6)],
                         ),
                         textAlign: TextAlign.center,
                       ),
                       Text(
                         '誰かの「最高の景色」になる。',
-                        style: GoogleFonts.notoSansJp(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withValues(alpha: 0.15),
-                              blurRadius: 6,
-                            ),
-                          ],
+                          shadows: [Shadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 6)],
                         ),
                         textAlign: TextAlign.center,
                       ),
-
                       const Spacer(),
-
-                      // ログインカード
                       _buildLoginCard(context),
-
                       const SizedBox(height: 44),
                     ],
                   ),
@@ -215,8 +260,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   Widget _buildLogo() {
     return Container(
-      width: 88,
-      height: 88,
+      width: 88, height: 88,
       decoration: BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
@@ -231,27 +275,17 @@ class _LoginScreenState extends State<LoginScreen>
       child: Stack(
         alignment: Alignment.center,
         children: [
-          const Icon(
-            Icons.location_on,
-            size: 48,
-            color: AppColors.primary,
-          ),
+          const Icon(Icons.location_on, size: 48, color: AppColors.primary),
           Positioned(
-            bottom: 18,
-            right: 18,
+            bottom: 18, right: 18,
             child: Container(
-              width: 26,
-              height: 26,
+              width: 26, height: 26,
               decoration: BoxDecoration(
                 color: AppColors.accent,
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 2),
               ),
-              child: const Icon(
-                Icons.camera_alt,
-                size: 13,
-                color: Colors.white,
-              ),
+              child: const Icon(Icons.camera_alt, size: 13, color: Colors.white),
             ),
           ),
         ],
@@ -278,7 +312,7 @@ class _LoginScreenState extends State<LoginScreen>
         children: [
           Text(
             'はじめましょう',
-            style: GoogleFonts.notoSansJp(
+            style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -287,14 +321,16 @@ class _LoginScreenState extends State<LoginScreen>
           const SizedBox(height: 4),
           Text(
             '1分で登録完了！あなたの発見を共有しよう✨',
-            style: GoogleFonts.notoSansJp(
-              fontSize: 13,
-              color: AppColors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 24),
 
-          // LINEボタン（アイコンなし・文字のみ）
+          // ① Sign in with Apple（Apple審査ガイドライン4.8：最上部に配置）
+          _buildAppleSignInButton(context),
+
+          const SizedBox(height: 12),
+
+          // ② LINEでログイン
           _buildSocialButton(
             context: context,
             label: 'LINEでログイン',
@@ -304,7 +340,7 @@ class _LoginScreenState extends State<LoginScreen>
 
           const SizedBox(height: 12),
 
-          // Googleボタン（アイコンなし・文字のみ）
+          // ③ Googleでログイン
           _buildSocialButton(
             context: context,
             label: 'Googleでログイン',
@@ -316,66 +352,95 @@ class _LoginScreenState extends State<LoginScreen>
 
           const SizedBox(height: 20),
 
-          // 利用規約・プライバシーポリシー リンク
+          // 利用規約・プライバシーポリシー
           Center(
             child: Wrap(
               alignment: WrapAlignment.center,
               children: [
-                Text(
-                  'ログインすることで',
-                  style: GoogleFonts.notoSansJp(
-                    fontSize: 10,
-                    color: AppColors.textHint,
-                  ),
-                ),
+                Text('ログインすることで',
+                    style: TextStyle(fontSize: 10, color: AppColors.textHint)),
                 GestureDetector(
                   onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const TermsScreen()),
-                  ),
-                  child: Text(
-                    '利用規約',
-                    style: GoogleFonts.notoSansJp(
-                      fontSize: 10,
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w700,
-                      decoration: TextDecoration.underline,
-                      decorationColor: AppColors.primary,
-                    ),
-                  ),
+                      MaterialPageRoute(builder: (_) => const TermsScreen())),
+                  child: Text('利用規約',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                        decoration: TextDecoration.underline,
+                        decorationColor: AppColors.primary,
+                      )),
                 ),
-                Text(
-                  'と',
-                  style: GoogleFonts.notoSansJp(
-                    fontSize: 10,
-                    color: AppColors.textHint,
-                  ),
-                ),
+                Text('と',
+                    style: TextStyle(fontSize: 10, color: AppColors.textHint)),
                 GestureDetector(
                   onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const PrivacyScreen()),
-                  ),
-                  child: Text(
-                    'プライバシーポリシー',
-                    style: GoogleFonts.notoSansJp(
-                      fontSize: 10,
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w700,
-                      decoration: TextDecoration.underline,
-                      decorationColor: AppColors.primary,
-                    ),
-                  ),
+                      MaterialPageRoute(builder: (_) => const PrivacyScreen())),
+                  child: Text('プライバシーポリシー',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w700,
+                        decoration: TextDecoration.underline,
+                        decorationColor: AppColors.primary,
+                      )),
                 ),
-                Text(
-                  'に同意します',
-                  style: GoogleFonts.notoSansJp(
-                    fontSize: 10,
-                    color: AppColors.textHint,
-                  ),
-                ),
+                Text('に同意します',
+                    style: TextStyle(fontSize: 10, color: AppColors.textHint)),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Sign in with Apple ボタン（Apple HIG準拠デザイン）
+  Widget _buildAppleSignInButton(BuildContext context) {
+    return GestureDetector(
+      onTap: _isAppleSignInLoading ? null : () => _signInWithApple(context),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        height: 52,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Center(
+          child: _isAppleSignInLoading
+              ? const SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2.5,
+                  ),
+                )
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Appleロゴ（SVGの代わりにIcon使用）
+                    const Icon(Icons.apple, color: Colors.white, size: 22),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Appleでサインイン',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
       ),
     );
   }
@@ -396,9 +461,7 @@ class _LoginScreenState extends State<LoginScreen>
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(14),
-          border: hasBorder
-              ? Border.all(color: AppColors.border, width: 1.5)
-              : null,
+          border: hasBorder ? Border.all(color: AppColors.border, width: 1.5) : null,
           boxShadow: hasBorder
               ? null
               : [
@@ -412,7 +475,7 @@ class _LoginScreenState extends State<LoginScreen>
         child: Center(
           child: Text(
             label,
-            style: GoogleFonts.notoSansJp(
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
               color: textColor,

@@ -48,8 +48,14 @@
 	<key>GoogleMapsAPIKey</key>
 	<string>AIzaSyDkkaK-buEVazhTK40x2XVhGdXzC-AYjLY</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>現在地を地図に表示するために位置情報を使用します。</string>
+	<string>現在地周辺の絶景・グルメスポットをマップ上に表示し、スポットへのルート案内や投稿時の位置情報登録に使用します。位置情報はアプリ使用中のみ取得します。</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>現在地を地図に表示するために位置情報を使用します。</string>
+	<string>現在地周辺の絶景・グルメスポットをマップ上に表示し、スポットへのルート案内や投稿時の位置情報登録に使用します。位置情報はアプリ使用中のみ取得します。</string>
+	<key>NSCameraUsageDescription</key>
+	<string>スポットの写真を撮影してピンに添付・投稿するためにカメラを使用します。撮影した写真はShotMapのスポット情報として共有されます。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>フォトライブラリから写真を選択してスポットのピンに添付・投稿するために使用します。選択した写真はShotMapのスポット情報として共有されます。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>マップ上のスポット写真をあなたのフォトライブラリに保存するために使用します。</string>
 </dict>
 </plist>

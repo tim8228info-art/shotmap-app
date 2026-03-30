@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
 import '../models/data_models.dart';
@@ -142,7 +141,7 @@ class _MovieScreenState extends State<MovieScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('URLを開けませんでした', style: GoogleFonts.notoSansJp()),
+            content: Text('URLを開けませんでした', style: TextStyle()),
             backgroundColor: AppColors.primaryDark,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -205,7 +204,7 @@ class _MovieScreenState extends State<MovieScreen>
               const SizedBox(width: 10),
               Text(
                 '都道府県で探す',
-                style: GoogleFonts.notoSansJp(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
@@ -225,7 +224,7 @@ class _MovieScreenState extends State<MovieScreen>
                     const SizedBox(width: 4),
                     Text(
                       '外部サイト',
-                      style: GoogleFonts.notoSansJp(
+                      style: TextStyle(
                         fontSize: 10,
                         color: AppColors.primary,
                         fontWeight: FontWeight.w600,
@@ -296,7 +295,7 @@ class _MovieScreenState extends State<MovieScreen>
                       const SizedBox(width: 5),
                       Text(
                         _selectedPrefecture ?? 'すべての都道府県',
-                        style: GoogleFonts.notoSansJp(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primary,
@@ -330,7 +329,7 @@ class _MovieScreenState extends State<MovieScreen>
                       const SizedBox(width: 4),
                       Text(
                         '都道府県を選択',
-                        style: GoogleFonts.notoSansJp(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textSecondary,
@@ -391,7 +390,7 @@ class _MovieScreenState extends State<MovieScreen>
                     ),
                     child: Text(
                       entry.key,
-                      style: GoogleFonts.notoSansJp(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: isActive ? Colors.white : AppColors.textSecondary,
@@ -435,7 +434,7 @@ class _MovieScreenState extends State<MovieScreen>
               const SizedBox(height: 16),
               Text(
                 '$regionName の都道府県',
-                style: GoogleFonts.notoSansJp(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
@@ -474,7 +473,7 @@ class _MovieScreenState extends State<MovieScreen>
                       ),
                       child: Text(
                         pref,
-                        style: GoogleFonts.notoSansJp(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: isSelected ? Colors.white : AppColors.textPrimary,
@@ -526,7 +525,7 @@ class _MovieScreenState extends State<MovieScreen>
                           children: [
                             Text(
                               '都道府県を選択',
-                              style: GoogleFonts.notoSansJp(
+                              style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.textPrimary,
@@ -547,7 +546,7 @@ class _MovieScreenState extends State<MovieScreen>
                                 ),
                                 child: Text(
                                   'すべての都道府県を表示',
-                                  style: GoogleFonts.notoSansJp(
+                                  style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.primary,
@@ -572,7 +571,7 @@ class _MovieScreenState extends State<MovieScreen>
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               child: Text(
                                 entry.key,
-                                style: GoogleFonts.notoSansJp(
+                                style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.textSecondary,
@@ -611,7 +610,7 @@ class _MovieScreenState extends State<MovieScreen>
                                     ),
                                     child: Text(
                                       pref,
-                                      style: GoogleFonts.notoSansJp(
+                                      style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
                                         color: isSelected ? Colors.white : AppColors.textPrimary,
@@ -672,7 +671,7 @@ class _MovieScreenState extends State<MovieScreen>
             Text(
               '$_selectedPrefecture の${genre.label}情報は\nまだ登録されていません',
               textAlign: TextAlign.center,
-              style: GoogleFonts.notoSansJp(
+              style: TextStyle(
                 fontSize: 15,
                 color: Colors.grey.shade500,
                 height: 1.6,
@@ -747,7 +746,7 @@ class _MovieScreenState extends State<MovieScreen>
               children: [
                 Text(
                   genre.label,
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
@@ -755,7 +754,7 @@ class _MovieScreenState extends State<MovieScreen>
                 ),
                 Text(
                   '$prefLabel の観光情報 · 下に引いてリロード',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 11,
                     color: Colors.white.withValues(alpha: 0.85),
                   ),
@@ -771,7 +770,7 @@ class _MovieScreenState extends State<MovieScreen>
             ),
             child: Text(
               '$count件',
-              style: GoogleFonts.poppins(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
@@ -860,7 +859,7 @@ class _MovieScreenState extends State<MovieScreen>
                             const SizedBox(width: 3),
                             Text(
                               item.rating!.toStringAsFixed(1),
-                              style: GoogleFonts.poppins(
+                              style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
@@ -886,7 +885,7 @@ class _MovieScreenState extends State<MovieScreen>
                           const SizedBox(width: 3),
                           Text(
                             item.area,
-                            style: GoogleFonts.notoSansJp(
+                            style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                               color: Colors.white,
@@ -935,7 +934,7 @@ class _MovieScreenState extends State<MovieScreen>
                         ),
                         child: Text(
                           item.siteName,
-                          style: GoogleFonts.notoSansJp(
+                          style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
                             color: genre.color,
@@ -947,7 +946,7 @@ class _MovieScreenState extends State<MovieScreen>
                         children: [
                           Text(
                             '詳細を見る',
-                            style: GoogleFonts.notoSansJp(
+                            style: TextStyle(
                                 fontSize: 11, color: AppColors.textSecondary),
                           ),
                           Icon(Icons.chevron_right,
@@ -959,7 +958,7 @@ class _MovieScreenState extends State<MovieScreen>
                   const SizedBox(height: 8),
                   Text(
                     item.title,
-                    style: GoogleFonts.notoSansJp(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary,
@@ -969,7 +968,7 @@ class _MovieScreenState extends State<MovieScreen>
                   const SizedBox(height: 6),
                   Text(
                     item.description,
-                    style: GoogleFonts.notoSansJp(
+                    style: TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
                       height: 1.6,
@@ -990,7 +989,7 @@ class _MovieScreenState extends State<MovieScreen>
                         ),
                         child: Text(
                           tag,
-                          style: GoogleFonts.notoSansJp(
+                          style: TextStyle(
                             fontSize: 11,
                             color: AppColors.primary,
                             fontWeight: FontWeight.w600,
@@ -1007,7 +1006,7 @@ class _MovieScreenState extends State<MovieScreen>
                       icon: const Icon(Icons.open_in_new, size: 15),
                       label: Text(
                         '${item.siteName}で見る',
-                        style: GoogleFonts.notoSansJp(
+                        style: TextStyle(
                             fontSize: 13, fontWeight: FontWeight.w700),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -1065,7 +1064,7 @@ class _TabItem extends StatelessWidget {
           const SizedBox(height: 3),
           Text(
             genre.label,
-            style: GoogleFonts.notoSansJp(
+            style: TextStyle(
               fontSize: 10,
               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w400,
               color: isSelected ? genre.color : AppColors.textHint,

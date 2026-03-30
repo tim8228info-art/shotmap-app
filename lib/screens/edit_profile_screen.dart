@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/user_profile_provider.dart';
@@ -142,7 +141,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Expanded(
               child: Text(
                 msg,
-                style: GoogleFonts.notoSansJp(fontSize: 13),
+                style: TextStyle(fontSize: 13),
               ),
             ),
           ],
@@ -209,7 +208,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 padding: const EdgeInsets.only(left: 2, bottom: 12),
                 child: Text(
                   '半角英数字とアンダースコア(_)で設定できます。IDは他のユーザーと重複できません。',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 12, color: AppColors.textSecondary, height: 1.5,
                   ),
                 ),
@@ -227,7 +226,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 padding: const EdgeInsets.only(left: 2, bottom: 12),
                 child: Text(
                   'URLを入力すると、マイページのSNSボタンがそのページへリンクされます',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                     height: 1.5,
@@ -285,7 +284,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 padding: const EdgeInsets.only(left: 2, bottom: 12),
                 child: Text(
                   'フォロー一覧の公開・非公開を設定できます',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 12, color: AppColors.textSecondary, height: 1.5,
                   ),
                 ),
@@ -317,7 +316,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
       title: Text(
         'プロフィール編集',
-        style: GoogleFonts.notoSansJp(
+        style: TextStyle(
           fontSize: 17,
           fontWeight: FontWeight.w700,
           color: AppColors.textPrimary,
@@ -345,7 +344,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                   child: Text(
                     '保存',
-                    style: GoogleFonts.notoSansJp(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
@@ -425,7 +424,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         const SizedBox(width: 7),
         Text(
           title,
-          style: GoogleFonts.notoSansJp(
+          style: TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
@@ -478,7 +477,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               const SizedBox(width: 6),
               Text(
                 label,
-                style: GoogleFonts.notoSansJp(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textSecondary,
@@ -488,7 +487,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 const SizedBox(width: 4),
                 Text(
                   '必須',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 10,
                     color: AppColors.accent,
                     fontWeight: FontWeight.w600,
@@ -499,7 +498,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               if (maxLength != null)
                 Text(
                   '${controller.text.length} / $maxLength',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 11,
                     color: controller.text.length > (maxLength * 0.8)
                         ? AppColors.accent
@@ -514,10 +513,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             maxLines: maxLines,
             maxLength: maxLength,
             onChanged: onChanged,
-            style: GoogleFonts.notoSansJp(fontSize: 14, color: AppColors.textPrimary),
+            style: TextStyle(fontSize: 14, color: AppColors.textPrimary),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: GoogleFonts.notoSansJp(
+              hintStyle: TextStyle(
                 fontSize: 13,
                 color: AppColors.textHint,
                 height: 1.5,
@@ -560,7 +559,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   const SizedBox(width: 4),
                   Text(
                     errorText,
-                    style: GoogleFonts.notoSansJp(
+                    style: TextStyle(
                       fontSize: 11,
                       color: const Color(0xFFE53935),
                     ),
@@ -602,7 +601,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     const SizedBox(width: 5),
                     Text(
                       'カスタムID',
-                      style: GoogleFonts.notoSansJp(
+                      style: TextStyle(
                         fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white,
                       ),
                     ),
@@ -628,7 +627,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       const SizedBox(width: 3),
                       Text(
                         isAvailable ? '使用可能' : '使用不可',
-                        style: GoogleFonts.notoSansJp(
+                        style: TextStyle(
                           fontSize: 10,
                           color: isAvailable ? const Color(0xFF27AE60) : const Color(0xFFE53935),
                           fontWeight: FontWeight.w600,
@@ -640,7 +639,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               if (idVal.isEmpty)
                 Text(
                   '任意',
-                  style: GoogleFonts.notoSansJp(fontSize: 11, color: AppColors.textHint),
+                  style: TextStyle(fontSize: 11, color: AppColors.textHint),
                 ),
             ],
           ),
@@ -653,12 +652,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 _customIdError = provider.validateCustomId(v);
               });
             },
-            style: GoogleFonts.notoSansJp(fontSize: 14, color: AppColors.textPrimary),
+            style: TextStyle(fontSize: 14, color: AppColors.textPrimary),
             decoration: InputDecoration(
               hintText: '例: yuki_travel（3〜20文字、半角英数字・_）',
-              hintStyle: GoogleFonts.notoSansJp(fontSize: 12, color: AppColors.textHint),
+              hintStyle: TextStyle(fontSize: 12, color: AppColors.textHint),
               prefixText: '@',
-              prefixStyle: GoogleFonts.notoSansJp(
+              prefixStyle: TextStyle(
                 fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.primary,
               ),
               filled: true,
@@ -704,7 +703,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   Flexible(
                     child: Text(
                       _customIdError!,
-                      style: GoogleFonts.notoSansJp(
+                      style: TextStyle(
                         fontSize: 11, color: const Color(0xFFE53935),
                       ),
                     ),
@@ -716,7 +715,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 5),
             Text(
               '一度設定したIDは他のユーザーと共有できません',
-              style: GoogleFonts.notoSansJp(fontSize: 11, color: AppColors.textHint),
+              style: TextStyle(fontSize: 11, color: AppColors.textHint),
             ),
           ],
         ],
@@ -754,7 +753,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     const SizedBox(width: 5),
                     Text(
                       platform,
-                      style: GoogleFonts.poppins(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
@@ -779,7 +778,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       const SizedBox(width: 3),
                       Text(
                         '設定済み',
-                        style: GoogleFonts.notoSansJp(
+                        style: TextStyle(
                           fontSize: 10,
                           color: const Color(0xFF27AE60),
                           fontWeight: FontWeight.w600,
@@ -791,7 +790,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               else
                 Text(
                   '未設定',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 11,
                     color: AppColors.textHint,
                   ),
@@ -804,13 +803,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             controller: controller,
             keyboardType: TextInputType.url,
             onChanged: (_) => setState(() {}),
-            style: GoogleFonts.notoSansJp(
+            style: TextStyle(
               fontSize: 13,
               color: AppColors.textPrimary,
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: GoogleFonts.notoSansJp(
+              hintStyle: TextStyle(
                 fontSize: 12,
                 color: AppColors.textHint,
               ),
@@ -891,7 +890,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               children: [
                 Text(
                   'フォロー一覧を非公開にする',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -902,7 +901,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   _hideFollowing
                       ? '他のユーザーはフォロー一覧を見られません'
                       : 'フォロー数は誰でも確認できます',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 11,
                     color: _hideFollowing
                         ? AppColors.primary
@@ -950,7 +949,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               )
             : Text(
                 'プロフィールを保存する',
-                style: GoogleFonts.notoSansJp(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),

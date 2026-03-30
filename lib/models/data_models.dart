@@ -51,6 +51,7 @@ class TrendSpot {
   final String imageUrl;
   final List<String> tags;
   final int likeCount;
+  final int saveCount;
   final String prefecture;
   final double lat;
   final double lng;
@@ -64,6 +65,7 @@ class TrendSpot {
     required this.imageUrl,
     required this.tags,
     required this.likeCount,
+    this.saveCount = 0,
     required this.prefecture,
     required this.lat,
     required this.lng,
@@ -764,6 +766,7 @@ class SampleData {
       imageUrl: 'https://images.unsplash.com/photo-1617196034183-421b4040ed20?w=600',
       tags: ['#たこ焼き', '#大阪', '#食べ歩き'],
       likeCount: 1124,
+      saveCount: 978,
       prefecture: '大阪府',
       lat: 34.6687,
       lng: 135.5009,
@@ -790,6 +793,7 @@ class SampleData {
       imageUrl: 'https://images.unsplash.com/photo-1569050467447-ce54b3bbc37d?w=600',
       tags: ['#ラーメン', '#北海道', '#グルメ'],
       likeCount: 812,
+      saveCount: 667,
       prefecture: '北海道',
       lat: 43.0618,
       lng: 141.3545,

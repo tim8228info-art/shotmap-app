@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 // ignore_for_file: unused_field
-import 'package:google_fonts/google_fonts.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -87,7 +86,7 @@ class _TrendScreenState extends State<TrendScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('URLを開けませんでした',
-              style: GoogleFonts.notoSansJp(fontSize: 13)),
+              style: TextStyle(fontSize: 13)),
           backgroundColor: AppColors.primaryDark,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -167,8 +166,8 @@ class _TrendScreenState extends State<TrendScreen>
         unselectedLabelColor: AppColors.textHint,
         indicatorColor: AppColors.primary,
         indicatorWeight: 2.5,
-        labelStyle: GoogleFonts.notoSansJp(fontWeight: FontWeight.w700, fontSize: 14),
-        unselectedLabelStyle: GoogleFonts.notoSansJp(fontWeight: FontWeight.w400, fontSize: 14),
+        labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w400, fontSize: 14),
         tabs: [
           const Tab(icon: Icon(Icons.auto_awesome, size: 18), text: 'スポット'),
           Tab(
@@ -177,7 +176,7 @@ class _TrendScreenState extends State<TrendScreen>
               children: [
                 const Icon(Icons.person_search, size: 18),
                 const SizedBox(width: 4),
-                Text('ユーザー検索', style: GoogleFonts.notoSansJp(fontSize: 13)),
+                Text('ユーザー検索', style: TextStyle(fontSize: 13)),
               ],
             ),
           ),
@@ -252,7 +251,7 @@ class _TrendScreenState extends State<TrendScreen>
                     const SizedBox(width: 6),
                     Text(
                       types[i].$2,
-                      style: GoogleFonts.notoSansJp(
+                      style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: selected ? Colors.white : AppColors.textSecondary,
@@ -273,7 +272,8 @@ class _TrendScreenState extends State<TrendScreen>
     final pinType = _spotTypeIndex == 0 ? PinType.sightseeing : PinType.gourmet;
     final spots = SampleData.trends
         .where((s) => s.pinType == pinType)
-        .toList();
+        .toList()
+      ..sort((a, b) => b.saveCount.compareTo(a.saveCount));
     final sectionLabel = _spotTypeIndex == 0 ? '風景スポット' : 'グルメスポット';
     final sectionIcon = _spotTypeIndex == 0 ? Icons.landscape : Icons.restaurant;
     final sectionColor = _spotTypeIndex == 0
@@ -289,7 +289,7 @@ class _TrendScreenState extends State<TrendScreen>
               const SizedBox(height: 12),
               Text(
                 'スポットがまだありません',
-                style: GoogleFonts.notoSansJp(
+                style: TextStyle(
                   fontSize: 14,
                   color: AppColors.textSecondary,
                 ),
@@ -310,7 +310,7 @@ class _TrendScreenState extends State<TrendScreen>
               const SizedBox(width: 6),
               Text(
                 sectionLabel,
-                style: GoogleFonts.notoSansJp(
+                style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
                   color: AppColors.textPrimary,
@@ -325,7 +325,7 @@ class _TrendScreenState extends State<TrendScreen>
                 ),
                 child: Text(
                   '${spots.length}件',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: sectionColor,
@@ -407,7 +407,7 @@ class _TrendScreenState extends State<TrendScreen>
                                 const SizedBox(width: 3),
                                 Text(
                                   'HOT',
-                                  style: GoogleFonts.notoSansJp(
+                                  style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w700,
                                     color: Colors.white,
@@ -426,7 +426,7 @@ class _TrendScreenState extends State<TrendScreen>
                               SnackBar(
                                 content: Text(
                                   isSaved ? '保存を解除しました' : 'スポットを保存しました',
-                                  style: GoogleFonts.notoSansJp(fontSize: 13),
+                                  style: TextStyle(fontSize: 13),
                                 ),
                                 backgroundColor: AppColors.primaryDark,
                                 behavior: SnackBarBehavior.floating,
@@ -465,7 +465,7 @@ class _TrendScreenState extends State<TrendScreen>
                           const SizedBox(width: 3),
                           Text(
                             spot.prefecture,
-                            style: GoogleFonts.notoSansJp(
+                            style: TextStyle(
                               fontSize: 12,
                               color: AppColors.textHint,
                             ),
@@ -475,7 +475,7 @@ class _TrendScreenState extends State<TrendScreen>
                       const SizedBox(height: 6),
                       Text(
                         spot.title,
-                        style: GoogleFonts.notoSansJp(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textPrimary,
@@ -484,7 +484,7 @@ class _TrendScreenState extends State<TrendScreen>
                       const SizedBox(height: 4),
                       Text(
                         spot.description,
-                        style: GoogleFonts.notoSansJp(
+                        style: TextStyle(
                           fontSize: 13,
                           color: AppColors.textSecondary,
                           height: 1.6,
@@ -504,7 +504,7 @@ class _TrendScreenState extends State<TrendScreen>
                             ),
                             child: Text(
                               tag,
-                              style: GoogleFonts.notoSansJp(
+                              style: TextStyle(
                                 fontSize: 11,
                                 color: AppColors.primary,
                                 fontWeight: FontWeight.w600,
@@ -537,7 +537,7 @@ class _TrendScreenState extends State<TrendScreen>
                                 const SizedBox(width: 3),
                                 Text(
                                   spot.pinType.label,
-                                  style: GoogleFonts.notoSansJp(
+                                  style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
                                     color: cardColor,
@@ -547,12 +547,18 @@ class _TrendScreenState extends State<TrendScreen>
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            '${spot.likeCount} いいね',
-                            style: GoogleFonts.notoSansJp(
-                              fontSize: 12,
-                              color: AppColors.textHint,
-                            ),
+                          Row(
+                            children: [
+                              const Icon(Icons.bookmark, size: 13, color: Color(0xFFFFAA00)),
+                              const SizedBox(width: 3),
+                              Text(
+                                '${spot.saveCount} 保存',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textHint,
+                                ),
+                              ),
+                            ],
                           ),
                           const Spacer(),
                           Container(
@@ -575,7 +581,7 @@ class _TrendScreenState extends State<TrendScreen>
                                 const SizedBox(width: 4),
                                 Text(
                                   'マップで見る',
-                                  style: GoogleFonts.notoSansJp(
+                                  style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
                                     color: Colors.white,
@@ -598,7 +604,8 @@ class _TrendScreenState extends State<TrendScreen>
   }
 
   Widget _buildHotBanner() {
-    final hotSpots = SampleData.trends.where((t) => t.isHot).toList();
+    final hotSpots = SampleData.trends.where((t) => t.isHot).toList()
+      ..sort((a, b) => b.saveCount.compareTo(a.saveCount));
     if (hotSpots.isEmpty) return const SizedBox.shrink();
 
     return Container(
@@ -626,7 +633,7 @@ class _TrendScreenState extends State<TrendScreen>
                       const SizedBox(width: 4),
                       Text(
                         '今週のHOT',
-                        style: GoogleFonts.notoSansJp(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
@@ -730,7 +737,7 @@ class _TrendScreenState extends State<TrendScreen>
                       children: [
                         Text(
                           spot.title,
-                          style: GoogleFonts.notoSansJp(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
@@ -741,11 +748,11 @@ class _TrendScreenState extends State<TrendScreen>
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            const Icon(Icons.favorite,
-                                size: 10, color: Colors.pink),
+                            const Icon(Icons.bookmark,
+                                size: 10, color: Color(0xFFFFD54F)),
                             const SizedBox(width: 3),
                             Text(
-                              '${spot.likeCount}',
+                              '${spot.saveCount}',
                               style: const TextStyle(
                                 fontSize: 10,
                                 color: Colors.white,
@@ -782,11 +789,11 @@ class _TrendScreenState extends State<TrendScreen>
                   controller: _searchCtrl,
                   onChanged: _onSearch,
                   onSubmitted: _onSearch,
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                       fontSize: 14, color: AppColors.textPrimary),
                   decoration: InputDecoration(
                     hintText: '@IDまたはニックネームで検索',
-                    hintStyle: GoogleFonts.notoSansJp(
+                    hintStyle: TextStyle(
                         fontSize: 13, color: AppColors.textHint),
                     prefixIcon: const Icon(Icons.search,
                         color: AppColors.primary, size: 20),
@@ -861,7 +868,7 @@ class _TrendScreenState extends State<TrendScreen>
           const SizedBox(height: 16),
           Text(
             'ユーザーを検索',
-            style: GoogleFonts.notoSansJp(
+            style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -870,7 +877,7 @@ class _TrendScreenState extends State<TrendScreen>
           const SizedBox(height: 8),
           Text(
             '@ID またはニックネームで\n気になるユーザーを検索しよう',
-            style: GoogleFonts.notoSansJp(
+            style: TextStyle(
               fontSize: 13,
               color: AppColors.textSecondary,
               height: 1.6,
@@ -880,7 +887,7 @@ class _TrendScreenState extends State<TrendScreen>
           const SizedBox(height: 20),
           Text(
             '例: @yuki_travel  /  Yuki',
-            style: GoogleFonts.notoSansJp(
+            style: TextStyle(
               fontSize: 12,
               color: AppColors.textHint,
               fontStyle: FontStyle.italic,
@@ -900,7 +907,7 @@ class _TrendScreenState extends State<TrendScreen>
           const SizedBox(height: 12),
           Text(
             'ユーザーが見つかりませんでした',
-            style: GoogleFonts.notoSansJp(
+            style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
               color: AppColors.textSecondary,
@@ -909,7 +916,7 @@ class _TrendScreenState extends State<TrendScreen>
           const SizedBox(height: 8),
           Text(
             'IDやニックネームを確認してください',
-            style: GoogleFonts.notoSansJp(
+            style: TextStyle(
                 fontSize: 13, color: AppColors.textHint),
           ),
         ],
@@ -984,7 +991,7 @@ class _TrendScreenState extends State<TrendScreen>
                           Flexible(
                             child: Text(
                               user.name,
-                              style: GoogleFonts.notoSansJp(
+                              style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
                                 color: AppColors.textPrimary,
@@ -1004,7 +1011,7 @@ class _TrendScreenState extends State<TrendScreen>
                             ),
                             child: Text(
                               '@${user.customId}',
-                              style: GoogleFonts.notoSansJp(
+                              style: TextStyle(
                                 fontSize: 10,
                                 color: AppColors.primary,
                                 fontWeight: FontWeight.w600,
@@ -1016,7 +1023,7 @@ class _TrendScreenState extends State<TrendScreen>
                       const SizedBox(height: 3),
                       Text(
                         user.bio,
-                        style: GoogleFonts.notoSansJp(
+                        style: TextStyle(
                           fontSize: 12,
                           color: AppColors.textSecondary,
                           height: 1.4,
@@ -1076,7 +1083,7 @@ class _TrendScreenState extends State<TrendScreen>
                     ),
                     child: Text(
                       isFollowing ? 'フォロー中' : 'フォロー',
-                      style: GoogleFonts.notoSansJp(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
                         color: isFollowing
@@ -1102,7 +1109,7 @@ class _TrendScreenState extends State<TrendScreen>
         const SizedBox(width: 3),
         Text(
           '$value $label',
-          style: GoogleFonts.notoSansJp(
+          style: TextStyle(
             fontSize: 11,
             color: AppColors.textHint,
           ),
@@ -1121,7 +1128,7 @@ class _TrendScreenState extends State<TrendScreen>
               color: Colors.white, size: 18,
             ),
             const SizedBox(width: 8),
-            Text(msg, style: GoogleFonts.notoSansJp(fontSize: 13)),
+            Text(msg, style: TextStyle(fontSize: 13)),
           ],
         ),
         backgroundColor:
@@ -1137,7 +1144,7 @@ class _TrendScreenState extends State<TrendScreen>
   void _showFollowSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg, style: GoogleFonts.notoSansJp(fontSize: 13)),
+        content: Text(msg, style: TextStyle(fontSize: 13)),
         backgroundColor: AppColors.primary,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

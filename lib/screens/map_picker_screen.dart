@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import '../theme/app_theme.dart';
 
@@ -23,12 +22,31 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
   // タップで選択した座標
   LatLng? _picked;
 
-  // 選択ピンのマーカー
-  Set<Marker> _markers = {};
+  // ユーザーが立てたピンのマーカー
+  Set<Marker> _userMarkers = {};
+
+  // 周辺スポットのマーカー（Google Places）
+  Set<Marker> _placeMarkers = {};
+
+  // 全マーカー（合作)
+  Set<Marker> get _markers => {..._placeMarkers, ..._userMarkers};
+
+  // マップタイプ（通常↔航空写真）
+  MapType _mapType = MapType.hybrid;
+
+  // 周辺スポット取得中フラグ
+  bool _isLoadingPlaces = false;
+
+  // 現在のカメラ位置（周辺スポット取得用）
+  LatLng _currentCenter = const LatLng(36.5, 137.0);
+  double _currentZoom = 5.5;
 
   // 検索欄
   final TextEditingController _searchCtrl = TextEditingController();
   bool _isSearching = false;
+
+  // 周辺スポット表示フラグ
+  bool _showPlaces = true;
 
   // クイックスポット（日本主要都市）
   static const List<_QuickSpot> _quickSpots = [
@@ -49,6 +67,92 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     _mapController?.dispose();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  // ── 周辺のGoogle Placesを取得しマーカーとして表示 ──
+  Future<void> _loadNearbyPlaces(LatLng center, double zoom) async {
+    if (!_showPlaces) return;
+    // ズームレベルが一定以上のときのみ取得（辺りが小すぎると視界が広すぎる）
+    if (zoom < 11.0) {
+      setState(() => _placeMarkers = {});
+      return;
+    }
+    if (_isLoadingPlaces) return;
+    setState(() => _isLoadingPlaces = true);
+    try {
+      // ズームに応じた半径（1000m〜5000m）
+      final radius = zoom >= 15 ? 1000 : zoom >= 13 ? 2000 : 5000;
+      final url = Uri.parse(
+        'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
+        '?location=${center.latitude},${center.longitude}'
+        '&radius=$radius'
+        '&language=ja'
+        '&key=$_kGeoApiKey',
+      );
+      final res = await http.get(url);
+      if (!mounted) return;
+      if (res.statusCode == 200) {
+        final json = jsonDecode(res.body) as Map<String, dynamic>;
+        final results = json['results'] as List? ?? [];
+        final newMarkers = <Marker>{};
+        for (final place in results.take(30)) {
+          final loc = place['geometry']['location'];
+          final lat = (loc['lat'] as num).toDouble();
+          final lng = (loc['lng'] as num).toDouble();
+          final placeId = place['place_id'] as String;
+          final name = place['name'] as String? ?? 'スポット';
+          final rating = (place['rating'] as num?)?.toDouble();
+          newMarkers.add(
+            Marker(
+              markerId: MarkerId('place_$placeId'),
+              position: LatLng(lat, lng),
+              icon: BitmapDescriptor.defaultMarkerWithHue(
+                BitmapDescriptor.hueAzure,
+              ),
+              infoWindow: InfoWindow(
+                title: name,
+                snippet: rating != null
+                    ? '★ ${rating.toStringAsFixed(1)} - タップしてこの場所を選択'
+                    : 'タップしてこの場所を選択',
+                onTap: () => _onMapTap(LatLng(lat, lng)),
+              ),
+              onTap: () {
+                // InfoWindowを表示しつつ、座標を選択候補にセット
+                _mapController?.showMarkerInfoWindow(MarkerId('place_$placeId'));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        const Icon(Icons.location_on, color: Colors.white, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text('「$name」を選択しますか？「確定」をタップしてください')),
+                      ],
+                    ),
+                    action: SnackBarAction(
+                      label: '確定',
+                      textColor: Colors.yellow,
+                      onPressed: () => _onMapTap(LatLng(lat, lng)),
+                    ),
+                    backgroundColor: AppColors.primaryDark,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    margin: const EdgeInsets.all(16),
+                    duration: const Duration(seconds: 4),
+                  ),
+                );
+              },
+            ),
+          );
+        }
+        if (mounted) {
+          setState(() => _placeMarkers = newMarkers);
+        }
+      }
+    } catch (_) {
+      // エラーはサイレントにスキップ
+    } finally {
+      if (mounted) setState(() => _isLoadingPlaces = false);
+    }
   }
 
   // ── Google Geocoding API を使って候補一覧を取得 ──
@@ -188,7 +292,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text('場所が見つかりませんでした',
-          style: GoogleFonts.notoSansJp(fontSize: 13)),
+          style: TextStyle(fontSize: 13)),
       backgroundColor: AppColors.primaryDark,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -201,7 +305,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text('検索に失敗しました',
-          style: GoogleFonts.notoSansJp(fontSize: 13)),
+          style: TextStyle(fontSize: 13)),
       backgroundColor: AppColors.primaryDark,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -234,7 +338,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
 
     setState(() {
       _picked = latLng;
-      _markers = {
+      _userMarkers = {
         Marker(
           markerId: const MarkerId('picked'),
           position: latLng,
@@ -315,8 +419,19 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             ),
             onMapCreated: (controller) {
               _mapController = controller;
+              // 初期座標で周辺スポット読み込み
+              _currentCenter = widget.initialCenter ?? const LatLng(36.5, 137.0);
+              _loadNearbyPlaces(_currentCenter, 5.5);
             },
-            mapType: MapType.normal,
+            onCameraIdle: () {
+              // カメラ停止時に周辺スポットを再取得
+              _loadNearbyPlaces(_currentCenter, _currentZoom);
+            },
+            onCameraMove: (pos) {
+              _currentCenter = pos.target;
+              _currentZoom = pos.zoom;
+            },
+            mapType: _mapType,
             markers: _markers,
             onTap: _onMapTap,
             myLocationEnabled: false,
@@ -324,6 +439,131 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
             compassEnabled: false,
             mapToolbarEnabled: false,
           ),
+
+          // ── マップタイプ切り替えボタン ──
+          Positioned(
+            right: 16,
+            bottom: 220,
+            child: Column(
+              children: [
+                // 航空写真切り替えボタン
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _mapType = _mapType == MapType.hybrid
+                          ? MapType.normal
+                          : MapType.hybrid;
+                    });
+                  },
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      _mapType == MapType.hybrid
+                          ? Icons.map_outlined
+                          : Icons.satellite_alt,
+                      size: 22,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    _mapType == MapType.hybrid ? '地図' : '航空写真',
+                    style: const TextStyle(color: Colors.white, fontSize: 9),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // 周辺スポット表示トグル
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _showPlaces = !_showPlaces;
+                      if (!_showPlaces) {
+                        _placeMarkers = {};
+                      } else {
+                        _loadNearbyPlaces(_currentCenter, _currentZoom);
+                      }
+                    });
+                  },
+                  child: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: _showPlaces ? AppColors.primary : Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.place,
+                      size: 22,
+                      color: _showPlaces ? Colors.white : AppColors.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    _showPlaces ? 'スポットON' : 'スポットOFF',
+                    style: const TextStyle(color: Colors.white, fontSize: 9),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // ── 周辺スポット読み込み中インジケーター ──
+          if (_isLoadingPlaces)
+            Positioned(
+              right: 16,
+              bottom: 385,
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(6),
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
 
           // ── 上部ヘッダー ──
           SafeArea(
@@ -377,7 +617,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                                   const SizedBox(width: 6),
                                   Text(
                                     '候補から選択してください',
-                                    style: GoogleFonts.notoSansJp(
+                                    style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                       color: AppColors.textSecondary,
@@ -421,7 +661,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                                       Expanded(
                                         child: Text(
                                           s.label,
-                                          style: GoogleFonts.notoSansJp(
+                                          style: TextStyle(
                                             fontSize: 13,
                                             color: AppColors.textPrimary,
                                           ),
@@ -462,7 +702,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                       const SizedBox(width: 8),
                       Text(
                         'マップをタップしてピンを立てる',
-                        style: GoogleFonts.notoSansJp(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
@@ -534,12 +774,12 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                   Expanded(
                     child: TextField(
                       controller: _searchCtrl,
-                      style: GoogleFonts.notoSansJp(fontSize: 13),
+                      style: TextStyle(fontSize: 13),
                       textInputAction: TextInputAction.search,
                       onSubmitted: _searchPlace,
                       decoration: InputDecoration(
                         hintText: '地名を入力してEnter...',
-                        hintStyle: GoogleFonts.notoSansJp(
+                        hintStyle: TextStyle(
                           fontSize: 13,
                           color: AppColors.textHint,
                         ),
@@ -600,7 +840,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                   _picked == null
                       ? 'マップをタップしてピンを選択'
                       : 'ピン選択済み　再タップで移動',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: Colors.white,
@@ -642,7 +882,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
               ),
               child: Text(
                 spot.name,
-                style: GoogleFonts.notoSansJp(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primaryDark,
@@ -724,7 +964,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                         _picked == null
                             ? 'マップをタップして場所を選んでください'
                             : 'この場所を投稿先に設定する',
-                        style: GoogleFonts.notoSansJp(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: _picked == null
@@ -771,7 +1011,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
               children: [
                 Text(
                   'まだ場所が選択されていません',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
@@ -779,7 +1019,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                 ),
                 Text(
                   'マップ上の好きな場所をタップしてピンを立てましょう',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 11,
                     color: AppColors.textSecondary,
                     height: 1.4,
@@ -830,7 +1070,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
               children: [
                 Text(
                   'ピン位置を選択しました ✓',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: AppColors.primaryDark,
@@ -839,7 +1079,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                 const SizedBox(height: 3),
                 Text(
                   _formatLatLng(ll),
-                  style: GoogleFonts.poppins(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
@@ -847,7 +1087,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
                 const SizedBox(height: 3),
                 Text(
                   'ドラッグで微調整できます',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 11,
                     color: AppColors.accent,
                     fontWeight: FontWeight.w600,
@@ -859,7 +1099,7 @@ class _MapPickerScreenState extends State<MapPickerScreen> {
           GestureDetector(
             onTap: () => setState(() {
               _picked = null;
-              _markers = {};
+              _userMarkers = {};
             }),
             child: Container(
               width: 28,

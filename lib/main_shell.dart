@@ -7,14 +7,21 @@ import '../screens/profile_screen.dart';
 import '../screens/post_screen.dart';
 
 class MainShell extends StatefulWidget {
-  const MainShell({super.key});
+  final int initialTab;
+  const MainShell({super.key, this.initialTab = 0});
 
   @override
   State<MainShell> createState() => _MainShellState();
 }
 
 class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
-  int _currentIndex = 0;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialTab;
+  }
 
   // マップ画面のコントローラー
   final GlobalKey<_MapScreenWrapperState> _mapKey =

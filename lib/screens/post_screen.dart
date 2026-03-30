@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../theme/app_theme.dart';
 import '../models/data_models.dart';
@@ -133,7 +132,7 @@ class _PostScreenState extends State<PostScreen> {
               const SizedBox(width: 8),
               Text(
                 '${_selectedPinType == PinType.sightseeing ? '🔴 風景' : '🔵 グルメ'}ピンを投稿しました！',
-                style: GoogleFonts.notoSansJp(fontWeight: FontWeight.w600),
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -154,7 +153,7 @@ class _PostScreenState extends State<PostScreen> {
             const Icon(Icons.error_outline, color: Colors.white, size: 20),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(msg, style: GoogleFonts.notoSansJp()),
+              child: Text(msg, style: TextStyle()),
             ),
           ],
         ),
@@ -228,7 +227,7 @@ class _PostScreenState extends State<PostScreen> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
                   '例: 早朝5〜7時 / 10〜11月の紅葉シーズン / 夕暮れ時',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                   ),
@@ -264,7 +263,7 @@ class _PostScreenState extends State<PostScreen> {
         const SizedBox(height: 4),
         Text(
           '風景写真スポットは赤ピン、グルメ・飲食店は青ピンで投稿されます',
-          style: GoogleFonts.notoSansJp(
+          style: TextStyle(
             fontSize: 12,
             color: AppColors.textSecondary,
           ),
@@ -351,7 +350,7 @@ class _PostScreenState extends State<PostScreen> {
                 const SizedBox(width: 6),
                 Text(
                   '$label ピン',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: isSelected ? color : AppColors.textPrimary,
@@ -363,7 +362,7 @@ class _PostScreenState extends State<PostScreen> {
             Text(
               desc,
               textAlign: TextAlign.center,
-              style: GoogleFonts.notoSansJp(
+              style: TextStyle(
                 fontSize: 11,
                 color: AppColors.textSecondary,
                 height: 1.5,
@@ -379,7 +378,7 @@ class _PostScreenState extends State<PostScreen> {
                 ),
                 child: Text(
                   '選択中',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
@@ -398,7 +397,7 @@ class _PostScreenState extends State<PostScreen> {
     return AppBar(
       title: Text(
         '新しいスポットを投稿',
-        style: GoogleFonts.notoSansJp(
+        style: TextStyle(
           fontSize: 17,
           fontWeight: FontWeight.w700,
         ),
@@ -422,7 +421,7 @@ class _PostScreenState extends State<PostScreen> {
             ),
             child: Text(
               '投稿する',
-              style: GoogleFonts.notoSansJp(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
@@ -456,7 +455,7 @@ class _PostScreenState extends State<PostScreen> {
               ),
               child: Text(
                 '$_photoCount / 5',
-                style: GoogleFonts.poppins(
+                style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: _photoCount > 0 ? Colors.white : AppColors.textHint,
@@ -466,7 +465,7 @@ class _PostScreenState extends State<PostScreen> {
             const SizedBox(width: 8),
             Text(
               '最大5枚',
-              style: GoogleFonts.notoSansJp(
+              style: TextStyle(
                 fontSize: 12,
                 color: AppColors.textSecondary,
               ),
@@ -514,7 +513,7 @@ class _PostScreenState extends State<PostScreen> {
         const SizedBox(height: 8),
         Text(
           '※ 1枚目がメイン写真としてマップに表示されます',
-          style: GoogleFonts.notoSansJp(
+          style: TextStyle(
             fontSize: 11,
             color: AppColors.textHint,
           ),
@@ -594,7 +593,7 @@ class _PostScreenState extends State<PostScreen> {
                           ),
                           child: Text(
                             'メイン',
-                            style: GoogleFonts.notoSansJp(
+                            style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
                               color: Colors.white,
@@ -617,7 +616,7 @@ class _PostScreenState extends State<PostScreen> {
                         const SizedBox(height: 6),
                         Text(
                           '写真を追加',
-                          style: GoogleFonts.notoSansJp(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: AppColors.primary,
@@ -626,7 +625,7 @@ class _PostScreenState extends State<PostScreen> {
                         const SizedBox(height: 2),
                         Text(
                           'タップして選択',
-                          style: GoogleFonts.notoSansJp(
+                          style: TextStyle(
                             fontSize: 11,
                             color: AppColors.textHint,
                           ),
@@ -646,7 +645,7 @@ class _PostScreenState extends State<PostScreen> {
       children: [
         Text(
           text,
-          style: GoogleFonts.notoSansJp(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
@@ -661,7 +660,7 @@ class _PostScreenState extends State<PostScreen> {
           ),
           child: Text(
             '必須',
-            style: GoogleFonts.notoSansJp(
+            style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w700,
               color: AppColors.accent,
@@ -675,7 +674,7 @@ class _PostScreenState extends State<PostScreen> {
   Widget _buildOptionalLabel(String text) {
     return Text(
       text,
-      style: GoogleFonts.notoSansJp(
+      style: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
@@ -692,10 +691,10 @@ class _PostScreenState extends State<PostScreen> {
     return TextField(
       controller: controller,
       maxLines: maxLines,
-      style: GoogleFonts.notoSansJp(fontSize: 14, color: AppColors.textPrimary),
+      style: TextStyle(fontSize: 14, color: AppColors.textPrimary),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: GoogleFonts.notoSansJp(
+        hintStyle: TextStyle(
           fontSize: 13,
           color: AppColors.textHint,
           height: 1.5,
@@ -719,7 +718,7 @@ class _PostScreenState extends State<PostScreen> {
           items: _prefectures.map((pref) {
             return DropdownMenuItem(
               value: pref,
-              child: Text(pref, style: GoogleFonts.notoSansJp(fontSize: 14)),
+              child: Text(pref, style: TextStyle(fontSize: 14)),
             );
           }).toList(),
           onChanged: (val) {
@@ -743,7 +742,7 @@ class _PostScreenState extends State<PostScreen> {
               hintText: '例: 写真映え、紅葉',
               prefixText: '# ',
             ),
-            style: GoogleFonts.notoSansJp(fontSize: 14),
+            style: TextStyle(fontSize: 14),
           ),
         ),
         const SizedBox(width: 10),
@@ -781,7 +780,7 @@ class _PostScreenState extends State<PostScreen> {
             children: [
               Text(
                 entry.value,
-                style: GoogleFonts.notoSansJp(
+                style: TextStyle(
                   fontSize: 13,
                   color: AppColors.primary,
                   fontWeight: FontWeight.w600,
@@ -810,7 +809,7 @@ class _PostScreenState extends State<PostScreen> {
           children: [
             Text(
               'スポットの場所',
-              style: GoogleFonts.notoSansJp(
+              style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textPrimary,
@@ -825,7 +824,7 @@ class _PostScreenState extends State<PostScreen> {
               ),
               child: Text(
                 '必須',
-                style: GoogleFonts.notoSansJp(
+                style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   color: AppColors.accent,
@@ -885,7 +884,7 @@ class _PostScreenState extends State<PostScreen> {
                         const SizedBox(width: 5),
                         Text(
                           '現在地を使用',
-                          style: GoogleFonts.notoSansJp(
+                          style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: _useCurrentLocation
@@ -937,7 +936,7 @@ class _PostScreenState extends State<PostScreen> {
                         const SizedBox(width: 5),
                         Text(
                           'マップで選択',
-                          style: GoogleFonts.notoSansJp(
+                          style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: !_useCurrentLocation
@@ -1007,7 +1006,7 @@ class _PostScreenState extends State<PostScreen> {
               children: [
                 Text(
                   _locationConfirmed ? '現在地を取得しました ✓' : 'GPSで現在地を取得',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: _locationConfirmed
@@ -1019,7 +1018,7 @@ class _PostScreenState extends State<PostScreen> {
                   _locationConfirmed
                       ? '位置情報が投稿に含まれます'
                       : 'ボタンを押して現在地を確認',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 11,
                     color: AppColors.textSecondary,
                   ),
@@ -1042,7 +1041,7 @@ class _PostScreenState extends State<PostScreen> {
                 ),
                 child: Text(
                   '取得',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
@@ -1055,7 +1054,7 @@ class _PostScreenState extends State<PostScreen> {
               onTap: () => setState(() => _locationConfirmed = false),
               child: Text(
                 'リセット',
-                style: GoogleFonts.notoSansJp(
+                style: TextStyle(
                   fontSize: 11,
                   color: AppColors.accent,
                   fontWeight: FontWeight.w600,
@@ -1112,7 +1111,7 @@ class _PostScreenState extends State<PostScreen> {
             children: [
               Text(
                 'マップからスポットの場所を選択',
-                style: GoogleFonts.notoSansJp(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: AppColors.primaryDark,
@@ -1120,7 +1119,7 @@ class _PostScreenState extends State<PostScreen> {
               ),
               Text(
                 'タップしてマップを開く →',
-                style: GoogleFonts.notoSansJp(
+                style: TextStyle(
                   fontSize: 11,
                   color: AppColors.textSecondary,
                 ),
@@ -1161,7 +1160,7 @@ class _PostScreenState extends State<PostScreen> {
             children: [
               Text(
                 'ピン位置を選択済み ✓',
-                style: GoogleFonts.notoSansJp(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: AppColors.primaryDark,
@@ -1169,7 +1168,7 @@ class _PostScreenState extends State<PostScreen> {
               ),
               Text(
                 'N$latStr, E$lngStr',
-                style: GoogleFonts.poppins(
+                style: TextStyle(
                   fontSize: 11,
                   color: AppColors.textSecondary,
                 ),
@@ -1178,7 +1177,7 @@ class _PostScreenState extends State<PostScreen> {
                 onTap: _openMapPicker,
                 child: Text(
                   '変更する →',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 11,
                     color: AppColors.accent,
                     fontWeight: FontWeight.w600,
@@ -1245,7 +1244,7 @@ class _PostScreenState extends State<PostScreen> {
               )
             : Text(
                 'スポットを投稿する',
-                style: GoogleFonts.notoSansJp(
+                style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),

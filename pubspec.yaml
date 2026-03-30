@@ -12,7 +12,6 @@ dependencies:
 
   # UI & アイコン
   cupertino_icons: ^1.0.8
-  google_fonts: ^6.2.1
   flutter_svg: ^2.0.10+1
   cached_network_image: ^3.4.1
 
@@ -31,8 +30,8 @@ dependencies:
   url_launcher: ^6.3.1
 
   # 位置情報
-  geolocator: ^13.0.2
-  geocoding: ^3.0.0
+  geolocator: 13.0.2
+  geocoding: 3.0.0
 
   # マップ（Google Maps - Android/iOS/Web対応）
   google_maps_flutter: ^2.10.0
@@ -40,6 +39,9 @@ dependencies:
   # flutter_map は map_picker_screen でも継続使用
   flutter_map: ^7.0.2
   latlong2: ^0.9.1
+
+  # google_fonts バージョン固定（6.1.0のバグ回避）
+  google_fonts: 6.2.1
 
   # アニメーション
   lottie: ^3.3.1
@@ -52,9 +54,13 @@ dependencies:
   firebase_app_installations: ^0.3.0+4
 
   # アプリ内課金（サブスクリプション）iOS + Android 両対応
-  in_app_purchase: ^3.2.0
-  in_app_purchase_android: ^0.3.6+4
-  in_app_purchase_storekit: ^0.3.18+1
+  in_app_purchase: 3.2.0
+  in_app_purchase_android: 0.3.6+4
+  in_app_purchase_storekit: 0.3.18+1
+
+  # Sign in with Apple（ガイドライン 4.8 対応）
+  sign_in_with_apple: ^6.1.4
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:

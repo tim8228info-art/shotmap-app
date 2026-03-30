@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
@@ -112,7 +111,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                 const Spacer(),
                 Text(
                   '@${u.customId}',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: Colors.white.withValues(alpha: 0.9),
@@ -161,7 +160,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                     children: [
                       Text(
                         u.name,
-                        style: GoogleFonts.notoSansJp(
+                        style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
@@ -172,7 +171,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                       const SizedBox(height: 4),
                       Text(
                         u.bio,
-                        style: GoogleFonts.notoSansJp(
+                        style: TextStyle(
                           fontSize: 12,
                           color: Colors.white.withValues(alpha: 0.85),
                           height: 1.4,
@@ -193,7 +192,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                         isFollowing
                             ? '@${u.customId} のフォローを解除しました'
                             : '@${u.customId} をフォローしました',
-                        style: GoogleFonts.notoSansJp(fontSize: 13),
+                        style: TextStyle(fontSize: 13),
                       ),
                       backgroundColor: isFollowing
                           ? AppColors.textSecondary
@@ -219,7 +218,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                     ),
                     child: Text(
                       isFollowing ? 'フォロー中' : 'フォローする',
-                      style: GoogleFonts.notoSansJp(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: isFollowing ? Colors.white : AppColors.primary,
@@ -251,10 +250,10 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     return Column(
       children: [
         Text(value,
-            style: GoogleFonts.poppins(
+            style: TextStyle(
                 fontSize: 20, fontWeight: FontWeight.w800, color: Colors.white)),
         Text(label,
-            style: GoogleFonts.notoSansJp(
+            style: TextStyle(
                 fontSize: 11, color: Colors.white.withValues(alpha: 0.8))),
       ],
     );
@@ -276,8 +275,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         unselectedLabelColor: AppColors.textHint,
         indicatorColor: AppColors.primary,
         indicatorWeight: 2.5,
-        labelStyle: GoogleFonts.notoSansJp(fontWeight: FontWeight.w700, fontSize: 13),
-        unselectedLabelStyle: GoogleFonts.notoSansJp(fontWeight: FontWeight.w400, fontSize: 13),
+        labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w400, fontSize: 13),
         tabs: const [
           Tab(icon: Icon(Icons.person_outline, size: 17), text: 'プロフィール'),
           Tab(icon: Icon(Icons.location_on_outlined, size: 17), text: 'スポット'),
@@ -344,11 +343,11 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                   const SizedBox(width: 12),
                   Expanded(
                     child: _statTile(
-                      icon: Icons.favorite,
+                      icon: Icons.bookmark,
                       iconColor: const Color(0xFFFFAA00),
                       bgColor: const Color(0xFFFFF8E1),
                       value: '−',
-                      label: 'いいね',
+                      label: '保存済み',
                       suffix: '件',
                     ),
                   ),
@@ -369,7 +368,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               const SizedBox(height: 12),
               Text(
                 u.bio.isEmpty ? '自己紹介はまだありません' : u.bio,
-                style: GoogleFonts.notoSansJp(
+                style: TextStyle(
                   fontSize: 14,
                   color: u.bio.isEmpty ? AppColors.textHint : AppColors.textPrimary,
                   height: 1.7,
@@ -433,7 +432,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('URLを開けませんでした', style: GoogleFonts.notoSansJp()),
+          content: Text('URLを開けませんでした', style: TextStyle()),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -464,7 +463,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                 ),
                 child: Text(
                   '${activeSns.length}件登録',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -507,10 +506,10 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(meta.platform,
-                                style: GoogleFonts.poppins(
+                                style: TextStyle(
                                     fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
                             Text('タップして開く',
-                                style: GoogleFonts.notoSansJp(
+                                style: TextStyle(
                                     fontSize: 9, color: Colors.white.withValues(alpha: 0.75))),
                           ],
                         ),
@@ -548,19 +547,19 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             text: TextSpan(children: [
               TextSpan(
                 text: value,
-                style: GoogleFonts.poppins(
+                style: TextStyle(
                     fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
               ),
               TextSpan(
                 text: suffix,
-                style: GoogleFonts.notoSansJp(
+                style: TextStyle(
                     fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
               ),
             ]),
           ),
           const SizedBox(height: 2),
           Text(label,
-              style: GoogleFonts.notoSansJp(fontSize: 11, color: AppColors.textSecondary)),
+              style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
         ],
       ),
     );
@@ -586,12 +585,12 @@ class _UserProfileScreenState extends State<UserProfileScreen>
               ),
               const SizedBox(height: 16),
               Text('まだスポットがありません',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                   textAlign: TextAlign.center),
               const SizedBox(height: 8),
               Text('このユーザーはまだスポットを\n投稿していません',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                       fontSize: 13, color: AppColors.textSecondary, height: 1.6),
                   textAlign: TextAlign.center),
             ],
@@ -675,7 +674,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         Icon(icon, color: AppColors.primary, size: 18),
         const SizedBox(width: 6),
         Text(title,
-            style: GoogleFonts.notoSansJp(
+            style: TextStyle(
                 fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
       ],
     );

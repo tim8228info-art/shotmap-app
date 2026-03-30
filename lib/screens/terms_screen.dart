@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 
 class TermsScreen extends StatelessWidget {
@@ -12,7 +11,7 @@ class TermsScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(
           '利用規約',
-          style: GoogleFonts.notoSansJp(
+          style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
@@ -139,7 +138,7 @@ class TermsScreen extends StatelessWidget {
               children: [
                 Text(
                   'Shotmap 利用規約',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -148,7 +147,7 @@ class TermsScreen extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   '本サービスをご利用いただく前に必ずお読みください。',
-                  style: GoogleFonts.notoSansJp(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textSecondary,
                     height: 1.4,
@@ -176,7 +175,7 @@ class TermsScreen extends StatelessWidget {
             ),
             child: Text(
               title,
-              style: GoogleFonts.notoSansJp(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
@@ -193,7 +192,7 @@ class TermsScreen extends StatelessWidget {
             ),
             child: Text(
               body.trim(),
-              style: GoogleFonts.notoSansJp(
+              style: TextStyle(
                 fontSize: 13,
                 color: AppColors.textSecondary,
                 height: 1.8,
@@ -211,7 +210,7 @@ class TermsScreen extends StatelessWidget {
         padding: const EdgeInsets.only(top: 8),
         child: Text(
           date,
-          style: GoogleFonts.notoSansJp(
+          style: TextStyle(
             fontSize: 12,
             color: AppColors.textHint,
           ),

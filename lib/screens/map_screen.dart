@@ -1,14 +1,19 @@
 import 'dart:async';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_map/flutter_map.dart' hide Marker;
+import 'package:flutter_map/flutter_map.dart' show FlutterMap, MapController, MapOptions, TileLayer, MarkerLayer;
+import 'package:flutter_map/src/layer/marker_layer/marker_layer.dart' as fm show Marker;
+import 'package:latlong2/latlong.dart' as ll;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
 import '../models/data_models.dart';
 import '../models/user_profile_provider.dart';
+import '../widgets/ugc/report_block_sheet.dart';
 import 'post_screen.dart';
 
 class MapScreen extends StatefulWidget {
@@ -33,6 +38,17 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   // ピンマーカーセット
   final Map<MarkerId, Marker> _markers = {};
+
+  // マップタイプ（通常↔航空写真）
+  MapType _mapType = MapType.hybrid;
+
+  // Web用: flutter_map コントローラー
+  final MapController _flutterMapController = MapController();
+  // Web用: 航空写真表示フラグ
+  bool _webShowSatellite = true;
+  // Web用: 現在のカメラ位置
+  ll.LatLng _webCenter = const ll.LatLng(36.5, 137.0);
+  double _webZoom = 6.0;
 
   // 検索
   final TextEditingController _searchController = TextEditingController();
@@ -68,6 +84,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   @override
   void dispose() {
     _mapController?.dispose();
+    _flutterMapController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -203,7 +220,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           SnackBar(
             content: Text(
               'Google Mapsを開けませんでした',
-              style: GoogleFonts.notoSansJp(),
+              style: TextStyle(),
             ),
             backgroundColor: AppColors.primaryDark,
           ),
@@ -262,29 +279,32 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // ── Google Maps 本体 ──
-          GoogleMap(
-            initialCameraPosition: const CameraPosition(
-              target: LatLng(36.5, 137.0),
-              zoom: 6.0,
+          // ── マップ本体（Web: flutter_map / モバイル: Google Maps） ──
+          if (kIsWeb)
+            _buildFlutterMap()
+          else
+            GoogleMap(
+              initialCameraPosition: const CameraPosition(
+                target: LatLng(36.5, 137.0),
+                zoom: 6.0,
+              ),
+              onMapCreated: (controller) {
+                _mapController = controller;
+              },
+              mapType: _mapType,
+              markers: Set<Marker>.of(_markers.values),
+              myLocationEnabled: true,
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+              compassEnabled: false,
+              mapToolbarEnabled: false,
+              onTap: (_) {
+                if (_selectedPin != null) {
+                  setState(() => _selectedPin = null);
+                  _loadMarkers();
+                }
+              },
             ),
-            onMapCreated: (controller) {
-              _mapController = controller;
-            },
-            mapType: MapType.hybrid,
-            markers: Set<Marker>.of(_markers.values),
-            myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-            compassEnabled: false,
-            mapToolbarEnabled: false,
-            onTap: (_) {
-              if (_selectedPin != null) {
-                setState(() => _selectedPin = null);
-                _loadMarkers();
-              }
-            },
-          ),
 
           // ── 上部：フィルタチップのみ（検索バー削除） ──
           SafeArea(
@@ -319,11 +339,140 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             right: 20,
             child: _buildMyLocationButton(),
           ),
+
+          // ── マップタイプ切り替えボタン（Web/モバイル共通） ──
+          Positioned(
+            bottom: _selectedPin == null ? 160 : 260,
+            right: 20,
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (kIsWeb) {
+                        _webShowSatellite = !_webShowSatellite;
+                      } else {
+                        _mapType = _mapType == MapType.hybrid
+                            ? MapType.normal
+                            : MapType.hybrid;
+                      }
+                    });
+                  },
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      (kIsWeb ? _webShowSatellite : _mapType == MapType.hybrid)
+                          ? Icons.map_outlined
+                          : Icons.satellite_alt,
+                      size: 20,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    (kIsWeb ? _webShowSatellite : _mapType == MapType.hybrid)
+                        ? '地図' : '航空',
+                    style: const TextStyle(color: Colors.white, fontSize: 9),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
+
+  // ── Web用: flutter_map（Esri衛星写真 or OSM通常地図）──
+  Widget _buildFlutterMap() {
+    final satelliteTileUrl =
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+    final normalTileUrl =
+        'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    final tileUrl = _webShowSatellite ? satelliteTileUrl : normalTileUrl;
+
+    return FlutterMap(
+      mapController: _flutterMapController,
+      options: MapOptions(
+        initialCenter: _webCenter,
+        initialZoom: _webZoom,
+        onTap: (_, __) {
+          if (_selectedPin != null) {
+            setState(() => _selectedPin = null);
+          }
+        },
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: tileUrl,
+          userAgentPackageName: 'com.shotmap.pins',
+        ),
+        // ピンをマーカーとして表示
+        MarkerLayer(
+          markers: _filteredPins.map((pin) {
+            final isSelected = _selectedPin?.id == pin.id;
+            return fm.Marker(
+              point: ll.LatLng(pin.lat, pin.lng),
+              width: isSelected ? 48 : 38,
+              height: isSelected ? 48 : 38,
+              child: GestureDetector(
+                onTap: () => _onPinTap(pin),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? Colors.white
+                        : (pin.pinType == PinType.sightseeing
+                            ? const Color(0xFFE53935)
+                            : const Color(0xFF1565C0)),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected
+                          ? const Color(0xFFE53935)
+                          : Colors.white,
+                      width: 2.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      pin.pinType == PinType.sightseeing ? '🏔' : '🍴',
+                      style: TextStyle(fontSize: isSelected ? 20 : 16),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
 
   // ── 検索バー ──
   Widget _buildSearchBar() {
@@ -352,7 +501,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 controller: _searchController,
                 decoration: InputDecoration(
                   hintText: '地名・スポット名で検索',
-                  hintStyle: GoogleFonts.notoSansJp(
+                  hintStyle: TextStyle(
                     fontSize: 14,
                     color: AppColors.textHint,
                   ),
@@ -361,7 +510,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   fillColor: Colors.transparent,
                   filled: false,
                 ),
-                style: GoogleFonts.notoSansJp(fontSize: 14),
+                style: TextStyle(fontSize: 14),
               ),
             ),
           ],
@@ -414,7 +563,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         ),
         child: Text(
           label,
-          style: GoogleFonts.notoSansJp(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
             color: isSelected ? Colors.white : color,
@@ -473,7 +622,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                       children: [
                         Text(
                           pin.title,
-                          style: GoogleFonts.notoSansJp(
+                          style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                             color: AppColors.textPrimary,
@@ -504,7 +653,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                               const SizedBox(width: 4),
                               Text(
                                 pin.pinType.label,
-                                style: GoogleFonts.notoSansJp(
+                                style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
                                   color: pin.pinType.color,
@@ -520,7 +669,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                             const SizedBox(width: 2),
                             Text(
                               pin.prefecture,
-                              style: GoogleFonts.notoSansJp(
+                              style: TextStyle(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
                               ),
@@ -528,88 +677,92 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                           ],
                         ),
                         const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 6,
-                          children: pin.tags.take(2).map((tag) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: AppColors.tagBlue,
-                                borderRadius: BorderRadius.circular(8),
+                        // タグ ＋ 保存ボタンを同じ行に並べる
+                        Row(
+                          children: [
+                            // タグ（余白を埋める）
+                            Expanded(
+                              child: Wrap(
+                                spacing: 6,
+                                children: pin.tags.take(2).map((tag) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.tagBlue,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      tag,
+                                      style: TextStyle(
+                                        fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
                               ),
-                              child: Text(
-                                tag,
-                                style: GoogleFonts.notoSansJp(
-                                  fontSize: 10, color: AppColors.primary, fontWeight: FontWeight.w600,
+                            ),
+                            const SizedBox(width: 8),
+                            // ── 保存ボタン ──
+                            GestureDetector(
+                              onTap: () {
+                                provider.toggleSavePin(pin);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        Icon(
+                                          isSaved
+                                              ? Icons.bookmark_remove
+                                              : Icons.bookmark_added,
+                                          color: Colors.white, size: 16,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          isSaved ? '保存を解除しました' : '保存しました ✓',
+                                          style: const TextStyle(fontSize: 13),
+                                        ),
+                                      ],
+                                    ),
+                                    backgroundColor: isSaved
+                                        ? AppColors.textSecondary
+                                        : AppColors.primary,
+                                    behavior: SnackBarBehavior.floating,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    margin: const EdgeInsets.all(16),
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: isSaved
+                                      ? const Color(0xFFFFF3CD)
+                                      : AppColors.primaryVeryLight,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: isSaved
+                                        ? const Color(0xFFFFD700)
+                                        : AppColors.primaryLight,
+                                  ),
+                                ),
+                                child: Icon(
+                                  isSaved ? Icons.bookmark : Icons.bookmark_border,
+                                  size: 18,
+                                  color: isSaved
+                                      ? const Color(0xFFFFAA00)
+                                      : AppColors.primary,
                                 ),
                               ),
-                            );
-                          }).toList(),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ),
-                  // いいね + 保存ボタン
-                  Column(
-                    children: [
-                      const Icon(Icons.favorite, color: AppColors.accent, size: 18),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${pin.likeCount}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.accent,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      // 保存ボタン
-                      GestureDetector(
-                        onTap: () {
-                          provider.toggleSavePin(pin);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Row(
-                                children: [
-                                  Icon(
-                                    isSaved ? Icons.bookmark_remove : Icons.bookmark_added,
-                                    color: Colors.white, size: 16,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    isSaved ? '保存を解除しました' : '保存しました ✓',
-                                    style: GoogleFonts.notoSansJp(fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                              backgroundColor: isSaved ? AppColors.textSecondary : AppColors.primary,
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              margin: const EdgeInsets.all(16),
-                              duration: const Duration(seconds: 2),
-                            ),
-                          );
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: 36, height: 36,
-                          decoration: BoxDecoration(
-                            color: isSaved
-                                ? const Color(0xFFFFF3CD)
-                                : AppColors.primaryVeryLight,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isSaved
-                                  ? const Color(0xFFFFD700)
-                                  : AppColors.primaryLight,
-                            ),
-                          ),
-                          child: Icon(
-                            isSaved ? Icons.bookmark : Icons.bookmark_border,
-                            size: 18,
-                            color: isSaved ? const Color(0xFFFFAA00) : AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ],
               ),
@@ -623,7 +776,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 children: [
                   Text(
                     'シェア:',
-                    style: GoogleFonts.notoSansJp(
+                    style: TextStyle(
                       fontSize: 11, color: AppColors.textHint, fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -680,7 +833,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                       const SizedBox(width: 6),
                       Text(
                         '経路・ナビ',
-                        style: GoogleFonts.notoSansJp(
+                        style: TextStyle(
                           fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white,
                         ),
                       ),
@@ -691,6 +844,39 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             ],
           ),
         ),
+            // ── ⚑ 通報ボタン（左上） ──
+            Positioned(
+              top: -12,
+              left: -8,
+              child: GestureDetector(
+                onTap: () => showReportBlockSheet(
+                  context,
+                  authorName: pin.authorName,
+                  postId: pin.id,
+                ),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.border, width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.more_horiz,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ),
             // ── ×ボタン（右上） ──
             Positioned(
               top: -12,
@@ -747,7 +933,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             const SizedBox(width: 4),
             Text(
               label,
-              style: GoogleFonts.notoSansJp(
+              style: TextStyle(
                 fontSize: 11, fontWeight: FontWeight.w700, color: color,
               ),
             ),
@@ -780,7 +966,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               const Icon(Icons.check_circle, color: Colors.white, size: 16),
               const SizedBox(width: 8),
               Text('テキストをコピーしました（Instagramに貼り付けてください）',
-                  style: GoogleFonts.notoSansJp(fontSize: 12)),
+                  style: TextStyle(fontSize: 12)),
             ]),
             backgroundColor: const Color(0xFFDD2A7B),
             behavior: SnackBarBehavior.floating,
@@ -806,7 +992,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             const Icon(Icons.check_circle, color: Colors.white, size: 16),
             const SizedBox(width: 8),
             Text('クリップボードにコピーしました',
-                style: GoogleFonts.notoSansJp(fontSize: 13)),
+                style: TextStyle(fontSize: 13)),
           ],
         ),
         backgroundColor: AppColors.primary,
